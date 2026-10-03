@@ -1,29 +1,22 @@
 {
   "@@locale": "ru",
-
   "appTitle": "ViPlayer",
-
   "navLibrary": "Медиатека",
   "navSearch": "Поиск",
   "navPlaylists": "Плейлисты",
   "navDownloads": "Загрузки",
   "navSettings": "Настройки",
-
   "libraryEmptyTitle": "Медиатека пуста",
   "libraryEmptyBody": "Добавьте папки с музыкой в настройках или скачайте треки — они появятся здесь.",
-
   "searchHint": "Треки, исполнители, альбомы",
-  "searchEmptyBody": "Поиск по медиатеке. Онлайн-поиск появится вместе с загрузками.",
-
+  "searchEmptyBody": "Ищите треки, исполнителей и альбомы в медиатеке.",
   "playlistsLiked": "Понравившееся",
   "playlistsEmptyTitle": "Плейлистов пока нет",
   "playlistsEmptyBody": "Создавайте плейлисты, чтобы упорядочить музыку. Они синхронизируются между устройствами.",
-
   "downloadsByLink": "По ссылке",
   "downloadsByName": "По названию",
   "downloadsEmptyTitle": "Пока ничего не скачано",
   "downloadsEmptyBody": "Вставьте ссылку YouTube Music, SoundCloud или Spotify либо найдите трек по названию.",
-
   "settingsAppearance": "Оформление",
   "settingsLanguage": "Язык",
   "settingsAccent": "Акцентный цвет",
@@ -32,14 +25,44 @@
   "settingsDownloadFolder": "Папка загрузок",
   "settingsAbout": "О приложении",
   "settingsVersion": "Версия {version}",
-
   "languageEnglish": "English",
   "languageRussian": "Русский",
-
-  "accentCyan": "Циан",
-  "accentMagenta": "Маджента",
-  "accentAcid": "Кислотный",
-  "accentViolet": "Фиолетовый",
-
-  "comingSoon": "Скоро"
+  "searchNoResults": "По запросу «{query}» ничего не найдено",
+  "libraryTracks": "Треки",
+  "libraryAlbums": "Альбомы",
+  "libraryArtists": "Исполнители",
+  "trackCount": "{count, plural, one{{count} трек} few{{count} трека} many{{count} треков} other{{count} трека}}",
+  "albumCount": "{count, plural, one{{count} альбом} few{{count} альбома} many{{count} альбомов} other{{count} альбома}}",
+  "durationHoursMinutes": "{hours} ч {minutes} мин",
+  "durationMinutes": "{minutes} мин",
+  "unknownArtist": "Неизвестный исполнитель",
+  "sortBy": "Сортировка",
+  "sortTitle": "Название",
+  "sortArtist": "Исполнитель",
+  "sortAlbum": "Альбом",
+  "sortRecentlyAdded": "Недавно добавленные",
+  "libraryRescan": "Пересканировать медиатеку",
+  "scanDiscovering": "Поиск музыки…",
+  "scanReading": "Чтение тегов {done} / {total}",
+  "scanSaving": "Сохранение…",
+  "scanFailed": "Ошибка сканирования медиатеки",
+  "scanLastResult": "{count, plural, one{{count} файл в медиатеке} few{{count} файла в медиатеке} many{{count} файлов в медиатеке} other{{count} файла в медиатеке}}",
+  "foldersAdd": "Добавить папку",
+  "foldersEmpty": "Папок пока нет. Добавьте папки, где лежит ваша музыка.",
+  "foldersRemove": "Убрать",
+  "foldersRemoveConfirm": "Убрать «{path}» из медиатеки? Файлы на диске не удаляются.",
+  "foldersAlreadyAdded": "Эта папка уже в медиатеке",
+  "foldersDeviceMusic": "Музыка устройства",
+  "foldersDeviceMusicSubtitle": "Вся музыка, которую Android нашёл на телефоне",
+  "foldersAlwaysIncluded": "Всегда включена",
+  "foldersPermissionDenied": "Нет доступа к музыке. Разрешите его в настройках системы.",
+  "foldersPicked": "Выбранные папки",
+  "cancel": "Отмена",
+  "playbackComingSoon": "Воспроизведение появится в следующем обновлении",
+  "play": "Слушать",
+  "accentSky": "Небесный",
+  "accentRose": "Розовый",
+  "accentMint": "Мятный",
+  "accentLavender": "Лавандовый",
+  "accentAmber": "Янтарный"
 }

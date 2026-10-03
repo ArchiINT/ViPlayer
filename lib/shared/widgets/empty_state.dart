@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 
-/// Centered placeholder for screens with no content yet: glowing icon, title,
-/// explanation and an optional call to action. Fades in on first build.
+/// Centered placeholder for screens with no content yet: icon in a glass
+/// circle, title, explanation and an optional call to action. Fades in.
 class EmptyState extends StatelessWidget {
   const EmptyState({
     super.key,
@@ -21,7 +21,7 @@ class EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final neon = Theme.of(context).colorScheme.primary;
+    final accent = Theme.of(context).colorScheme.primary;
     final textTheme = Theme.of(context).textTheme;
 
     return TweenAnimationBuilder<double>(
@@ -37,21 +37,23 @@ class EmptyState extends StatelessWidget {
       ),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 360),
+          constraints: const BoxConstraints(maxWidth: 380),
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  icon,
-                  size: 56,
-                  color: neon,
-                  shadows: [
-                    Shadow(color: neon.withValues(alpha: 0.6), blurRadius: 24),
-                  ],
+                Container(
+                  width: 88,
+                  height: 88,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppColors.glassStrong,
+                    border: Border.all(color: AppColors.glassBorder),
+                  ),
+                  child: Icon(icon, size: 40, color: accent),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 24),
                 Text(
                   title,
                   textAlign: TextAlign.center,
@@ -59,15 +61,17 @@ class EmptyState extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  message,
-                  textAlign: TextAlign.center,
-                  style: textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textSecondary,
-                    height: 1.4,
+                if (message.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: AppColors.textSecondary,
+                      height: 1.45,
+                    ),
                   ),
-                ),
+                ],
                 if (action != null) ...[const SizedBox(height: 24), action!],
               ],
             ),

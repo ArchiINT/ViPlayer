@@ -30,11 +30,22 @@ dependencies:
   shared_preferences: ^2.5.5
   package_info_plus: ^10.2.2
 
+  # Music library: tags & covers, folder picking, Android permissions
+  audio_metadata_reader: ^1.8.0
+  file_picker: ^13.1.0
+  permission_handler: ^13.0.2
+  crypto: ^3.0.7
+
   # Stable ids for cross-device sync
   uuid: ^4.6.0
 
 dev_dependencies:
   flutter_test:
+    sdk: flutter
+  # Performance tests (integration_test/, run via scripts/perf-test.sh)
+  integration_test:
+    sdk: flutter
+  flutter_driver:
     sdk: flutter
 
   flutter_lints: ^6.0.0

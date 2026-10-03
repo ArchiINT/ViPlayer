@@ -20,7 +20,9 @@ if (hasReleaseKeystore) {
 
 android {
     namespace = "com.viplayer.viplayer"
-    compileSdk = flutter.compileSdkVersion
+    // 37: required by permission_handler. Only affects compilation;
+    // runtime behaviour follows targetSdk.
+    compileSdk = 37
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

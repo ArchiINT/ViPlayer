@@ -2854,6 +2854,17 @@ class $TrackFilesTable extends TrackFiles
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _coverIdMeta = const VerificationMeta(
+    'coverId',
+  );
+  @override
+  late final GeneratedColumn<String> coverId = GeneratedColumn<String>(
+    'cover_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _folderIdMeta = const VerificationMeta(
     'folderId',
   );
@@ -2875,6 +2886,7 @@ class $TrackFilesTable extends TrackFiles
     path,
     sizeBytes,
     modifiedAt,
+    coverId,
     folderId,
   ];
   @override
@@ -2924,6 +2936,12 @@ class $TrackFilesTable extends TrackFiles
     } else if (isInserting) {
       context.missing(_modifiedAtMeta);
     }
+    if (data.containsKey('cover_id')) {
+      context.handle(
+        _coverIdMeta,
+        coverId.isAcceptableOrUnknown(data['cover_id']!, _coverIdMeta),
+      );
+    }
     if (data.containsKey('folder_id')) {
       context.handle(
         _folderIdMeta,
@@ -2959,6 +2977,10 @@ class $TrackFilesTable extends TrackFiles
         DriftSqlType.int,
         data['${effectivePrefix}modified_at'],
       )!,
+      coverId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}cover_id'],
+      ),
       folderId: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}folder_id'],
@@ -2981,7 +3003,12 @@ class TrackFileRow extends DataClass implements Insertable<TrackFileRow> {
   /// File mtime (ms) — lets the scanner skip unchanged files.
   final int modifiedAt;
 
-  /// Library folder the file was found in; null for the app download folder.
+  /// Cover image extracted from this file (or its folder), stored in the
+  /// covers directory under this name. See CoverStore. Added in schema v2.
+  final String? coverId;
+
+  /// Library folder the file was found in; null for the download folder and
+  /// for files found through Android's MediaStore.
   final int? folderId;
   const TrackFileRow({
     required this.id,
@@ -2989,6 +3016,7 @@ class TrackFileRow extends DataClass implements Insertable<TrackFileRow> {
     required this.path,
     required this.sizeBytes,
     required this.modifiedAt,
+    this.coverId,
     this.folderId,
   });
   @override
@@ -2999,6 +3027,9 @@ class TrackFileRow extends DataClass implements Insertable<TrackFileRow> {
     map['path'] = Variable<String>(path);
     map['size_bytes'] = Variable<int>(sizeBytes);
     map['modified_at'] = Variable<int>(modifiedAt);
+    if (!nullToAbsent || coverId != null) {
+      map['cover_id'] = Variable<String>(coverId);
+    }
     if (!nullToAbsent || folderId != null) {
       map['folder_id'] = Variable<int>(folderId);
     }
@@ -3012,6 +3043,9 @@ class TrackFileRow extends DataClass implements Insertable<TrackFileRow> {
       path: Value(path),
       sizeBytes: Value(sizeBytes),
       modifiedAt: Value(modifiedAt),
+      coverId: coverId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(coverId),
       folderId: folderId == null && nullToAbsent
           ? const Value.absent()
           : Value(folderId),
@@ -3029,6 +3063,7 @@ class TrackFileRow extends DataClass implements Insertable<TrackFileRow> {
       path: serializer.fromJson<String>(json['path']),
       sizeBytes: serializer.fromJson<int>(json['sizeBytes']),
       modifiedAt: serializer.fromJson<int>(json['modifiedAt']),
+      coverId: serializer.fromJson<String?>(json['coverId']),
       folderId: serializer.fromJson<int?>(json['folderId']),
     );
   }
@@ -3041,6 +3076,7 @@ class TrackFileRow extends DataClass implements Insertable<TrackFileRow> {
       'path': serializer.toJson<String>(path),
       'sizeBytes': serializer.toJson<int>(sizeBytes),
       'modifiedAt': serializer.toJson<int>(modifiedAt),
+      'coverId': serializer.toJson<String?>(coverId),
       'folderId': serializer.toJson<int?>(folderId),
     };
   }
@@ -3051,6 +3087,7 @@ class TrackFileRow extends DataClass implements Insertable<TrackFileRow> {
     String? path,
     int? sizeBytes,
     int? modifiedAt,
+    Value<String?> coverId = const Value.absent(),
     Value<int?> folderId = const Value.absent(),
   }) => TrackFileRow(
     id: id ?? this.id,
@@ -3058,6 +3095,7 @@ class TrackFileRow extends DataClass implements Insertable<TrackFileRow> {
     path: path ?? this.path,
     sizeBytes: sizeBytes ?? this.sizeBytes,
     modifiedAt: modifiedAt ?? this.modifiedAt,
+    coverId: coverId.present ? coverId.value : this.coverId,
     folderId: folderId.present ? folderId.value : this.folderId,
   );
   TrackFileRow copyWithCompanion(TrackFilesCompanion data) {
@@ -3069,6 +3107,7 @@ class TrackFileRow extends DataClass implements Insertable<TrackFileRow> {
       modifiedAt: data.modifiedAt.present
           ? data.modifiedAt.value
           : this.modifiedAt,
+      coverId: data.coverId.present ? data.coverId.value : this.coverId,
       folderId: data.folderId.present ? data.folderId.value : this.folderId,
     );
   }
@@ -3081,6 +3120,7 @@ class TrackFileRow extends DataClass implements Insertable<TrackFileRow> {
           ..write('path: $path, ')
           ..write('sizeBytes: $sizeBytes, ')
           ..write('modifiedAt: $modifiedAt, ')
+          ..write('coverId: $coverId, ')
           ..write('folderId: $folderId')
           ..write(')'))
         .toString();
@@ -3088,7 +3128,7 @@ class TrackFileRow extends DataClass implements Insertable<TrackFileRow> {
 
   @override
   int get hashCode =>
-      Object.hash(id, trackId, path, sizeBytes, modifiedAt, folderId);
+      Object.hash(id, trackId, path, sizeBytes, modifiedAt, coverId, folderId);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -3098,6 +3138,7 @@ class TrackFileRow extends DataClass implements Insertable<TrackFileRow> {
           other.path == this.path &&
           other.sizeBytes == this.sizeBytes &&
           other.modifiedAt == this.modifiedAt &&
+          other.coverId == this.coverId &&
           other.folderId == this.folderId);
 }
 
@@ -3107,6 +3148,7 @@ class TrackFilesCompanion extends UpdateCompanion<TrackFileRow> {
   final Value<String> path;
   final Value<int> sizeBytes;
   final Value<int> modifiedAt;
+  final Value<String?> coverId;
   final Value<int?> folderId;
   const TrackFilesCompanion({
     this.id = const Value.absent(),
@@ -3114,6 +3156,7 @@ class TrackFilesCompanion extends UpdateCompanion<TrackFileRow> {
     this.path = const Value.absent(),
     this.sizeBytes = const Value.absent(),
     this.modifiedAt = const Value.absent(),
+    this.coverId = const Value.absent(),
     this.folderId = const Value.absent(),
   });
   TrackFilesCompanion.insert({
@@ -3122,6 +3165,7 @@ class TrackFilesCompanion extends UpdateCompanion<TrackFileRow> {
     required String path,
     required int sizeBytes,
     required int modifiedAt,
+    this.coverId = const Value.absent(),
     this.folderId = const Value.absent(),
   }) : trackId = Value(trackId),
        path = Value(path),
@@ -3133,6 +3177,7 @@ class TrackFilesCompanion extends UpdateCompanion<TrackFileRow> {
     Expression<String>? path,
     Expression<int>? sizeBytes,
     Expression<int>? modifiedAt,
+    Expression<String>? coverId,
     Expression<int>? folderId,
   }) {
     return RawValuesInsertable({
@@ -3141,6 +3186,7 @@ class TrackFilesCompanion extends UpdateCompanion<TrackFileRow> {
       if (path != null) 'path': path,
       if (sizeBytes != null) 'size_bytes': sizeBytes,
       if (modifiedAt != null) 'modified_at': modifiedAt,
+      if (coverId != null) 'cover_id': coverId,
       if (folderId != null) 'folder_id': folderId,
     });
   }
@@ -3151,6 +3197,7 @@ class TrackFilesCompanion extends UpdateCompanion<TrackFileRow> {
     Value<String>? path,
     Value<int>? sizeBytes,
     Value<int>? modifiedAt,
+    Value<String?>? coverId,
     Value<int?>? folderId,
   }) {
     return TrackFilesCompanion(
@@ -3159,6 +3206,7 @@ class TrackFilesCompanion extends UpdateCompanion<TrackFileRow> {
       path: path ?? this.path,
       sizeBytes: sizeBytes ?? this.sizeBytes,
       modifiedAt: modifiedAt ?? this.modifiedAt,
+      coverId: coverId ?? this.coverId,
       folderId: folderId ?? this.folderId,
     );
   }
@@ -3181,6 +3229,9 @@ class TrackFilesCompanion extends UpdateCompanion<TrackFileRow> {
     if (modifiedAt.present) {
       map['modified_at'] = Variable<int>(modifiedAt.value);
     }
+    if (coverId.present) {
+      map['cover_id'] = Variable<String>(coverId.value);
+    }
     if (folderId.present) {
       map['folder_id'] = Variable<int>(folderId.value);
     }
@@ -3195,6 +3246,7 @@ class TrackFilesCompanion extends UpdateCompanion<TrackFileRow> {
           ..write('path: $path, ')
           ..write('sizeBytes: $sizeBytes, ')
           ..write('modifiedAt: $modifiedAt, ')
+          ..write('coverId: $coverId, ')
           ..write('folderId: $folderId')
           ..write(')'))
         .toString();
@@ -5439,6 +5491,7 @@ typedef $$TrackFilesTableCreateCompanionBuilder = TrackFilesCompanion Function({
   required String path,
   required int sizeBytes,
   required int modifiedAt,
+  Value<String?> coverId,
   Value<int?> folderId,
 });
 typedef $$TrackFilesTableUpdateCompanionBuilder = TrackFilesCompanion Function({
@@ -5447,6 +5500,7 @@ typedef $$TrackFilesTableUpdateCompanionBuilder = TrackFilesCompanion Function({
   Value<String> path,
   Value<int> sizeBytes,
   Value<int> modifiedAt,
+  Value<String?> coverId,
   Value<int?> folderId,
 });
 
@@ -5516,6 +5570,11 @@ class $$TrackFilesTableFilterComposer
 
   ColumnFilters<int> get modifiedAt => $composableBuilder(
     column: $table.modifiedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get coverId => $composableBuilder(
+    column: $table.coverId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5595,6 +5654,11 @@ class $$TrackFilesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get coverId => $composableBuilder(
+    column: $table.coverId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$TracksTableOrderingComposer get trackId {
     final $$TracksTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -5664,6 +5728,9 @@ class $$TrackFilesTableAnnotationComposer
     column: $table.modifiedAt,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get coverId =>
+      $composableBuilder(column: $table.coverId, builder: (column) => column);
 
   $$TracksTableAnnotationComposer get trackId {
     final $$TracksTableAnnotationComposer composer = $composerBuilder(
@@ -5745,6 +5812,7 @@ class $$TrackFilesTableTableManager
                 Value<String> path = const Value.absent(),
                 Value<int> sizeBytes = const Value.absent(),
                 Value<int> modifiedAt = const Value.absent(),
+                Value<String?> coverId = const Value.absent(),
                 Value<int?> folderId = const Value.absent(),
               }) => TrackFilesCompanion(
                 id: id,
@@ -5752,6 +5820,7 @@ class $$TrackFilesTableTableManager
                 path: path,
                 sizeBytes: sizeBytes,
                 modifiedAt: modifiedAt,
+                coverId: coverId,
                 folderId: folderId,
               ),
           createCompanionCallback:
@@ -5761,6 +5830,7 @@ class $$TrackFilesTableTableManager
                 required String path,
                 required int sizeBytes,
                 required int modifiedAt,
+                Value<String?> coverId = const Value.absent(),
                 Value<int?> folderId = const Value.absent(),
               }) => TrackFilesCompanion.insert(
                 id: id,
@@ -5768,6 +5838,7 @@ class $$TrackFilesTableTableManager
                 path: path,
                 sizeBytes: sizeBytes,
                 modifiedAt: modifiedAt,
+                coverId: coverId,
                 folderId: folderId,
               ),
           withReferenceMapper: (p0) => p0

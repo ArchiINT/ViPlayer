@@ -106,7 +106,12 @@ class TrackFiles extends Table {
   /// File mtime (ms) — lets the scanner skip unchanged files.
   IntColumn get modifiedAt => integer()();
 
-  /// Library folder the file was found in; null for the app download folder.
+  /// Cover image extracted from this file (or its folder), stored in the
+  /// covers directory under this name. See CoverStore. Added in schema v2.
+  TextColumn get coverId => text().nullable()();
+
+  /// Library folder the file was found in; null for the download folder and
+  /// for files found through Android's MediaStore.
   IntColumn get folderId => integer().nullable().references(
     LibraryFolders,
     #id,

@@ -18,13 +18,15 @@ final settingsProvider = NotifierProvider<SettingsController, AppSettings>(
 class SettingsController extends Notifier<AppSettings> {
   static const _languageKey = 'settings.language';
   static const _accentKey = 'settings.accent';
+  static const _scanDeviceMusicKey = 'settings.scanDeviceMusic';
 
   SharedPreferences get _prefs => ref.read(sharedPreferencesProvider);
 
   @override
   AppSettings build() => AppSettings(
     language: AppLanguage.fromCode(_prefs.getString(_languageKey)),
-    accent: NeonAccent.fromName(_prefs.getString(_accentKey)),
+    accent: Accent.fromName(_prefs.getString(_accentKey)),
+    scanDeviceMusic: _prefs.getBool(_scanDeviceMusicKey) ?? true,
   );
 
   Future<void> setLanguage(AppLanguage language) async {
@@ -32,8 +34,13 @@ class SettingsController extends Notifier<AppSettings> {
     await _prefs.setString(_languageKey, language.name);
   }
 
-  Future<void> setAccent(NeonAccent accent) async {
+  Future<void> setAccent(Accent accent) async {
     state = state.copyWith(accent: accent);
     await _prefs.setString(_accentKey, accent.name);
+  }
+
+  Future<void> setScanDeviceMusic(bool value) async {
+    state = state.copyWith(scanDeviceMusic: value);
+    await _prefs.setBool(_scanDeviceMusicKey, value);
   }
 }

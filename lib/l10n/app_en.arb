@@ -1,29 +1,22 @@
 {
   "@@locale": "en",
-
   "appTitle": "ViPlayer",
-
   "navLibrary": "Library",
   "navSearch": "Search",
   "navPlaylists": "Playlists",
   "navDownloads": "Downloads",
   "navSettings": "Settings",
-
   "libraryEmptyTitle": "Your library is empty",
   "libraryEmptyBody": "Add music folders in Settings or download tracks — they will show up here.",
-
   "searchHint": "Tracks, artists, albums",
-  "searchEmptyBody": "Search your library. Online search arrives with the downloads update.",
-
+  "searchEmptyBody": "Search tracks, artists and albums in your library.",
   "playlistsLiked": "Liked",
   "playlistsEmptyTitle": "No playlists yet",
   "playlistsEmptyBody": "Create playlists to organize your music. They sync between your devices.",
-
   "downloadsByLink": "By link",
   "downloadsByName": "By name",
   "downloadsEmptyTitle": "Nothing downloaded yet",
   "downloadsEmptyBody": "Paste a YouTube Music, SoundCloud or Spotify link, or search by track name.",
-
   "settingsAppearance": "Appearance",
   "settingsLanguage": "Language",
   "settingsAccent": "Accent color",
@@ -34,17 +27,111 @@
   "settingsVersion": "Version {version}",
   "@settingsVersion": {
     "placeholders": {
-      "version": { "type": "String" }
+      "version": {
+        "type": "String"
+      }
     }
   },
-
   "languageEnglish": "English",
   "languageRussian": "Русский",
-
-  "accentCyan": "Cyan",
-  "accentMagenta": "Magenta",
-  "accentAcid": "Acid",
-  "accentViolet": "Violet",
-
-  "comingSoon": "Coming soon"
+  "searchNoResults": "Nothing found for “{query}”",
+  "@searchNoResults": {
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
+  "libraryTracks": "Tracks",
+  "libraryAlbums": "Albums",
+  "libraryArtists": "Artists",
+  "trackCount": "{count, plural, =1{1 track} other{{count} tracks}}",
+  "@trackCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "albumCount": "{count, plural, =1{1 album} other{{count} albums}}",
+  "@albumCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "durationHoursMinutes": "{hours} h {minutes} min",
+  "@durationHoursMinutes": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "durationMinutes": "{minutes} min",
+  "@durationMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "unknownArtist": "Unknown artist",
+  "sortBy": "Sort",
+  "sortTitle": "Title",
+  "sortArtist": "Artist",
+  "sortAlbum": "Album",
+  "sortRecentlyAdded": "Recently added",
+  "libraryRescan": "Rescan library",
+  "scanDiscovering": "Looking for music…",
+  "scanReading": "Reading tags {done} / {total}",
+  "@scanReading": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "scanSaving": "Saving…",
+  "scanFailed": "Library scan failed",
+  "scanLastResult": "{count, plural, =1{1 file in library} other{{count} files in library}}",
+  "@scanLastResult": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "foldersAdd": "Add folder",
+  "foldersEmpty": "No folders yet. Add the folders where your music lives.",
+  "foldersRemove": "Remove",
+  "foldersRemoveConfirm": "Remove “{path}” from the library? Files on disk are not deleted.",
+  "@foldersRemoveConfirm": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "foldersAlreadyAdded": "This folder is already in the library",
+  "foldersDeviceMusic": "Device music",
+  "foldersDeviceMusicSubtitle": "All music Android has indexed on this phone",
+  "foldersAlwaysIncluded": "Always included",
+  "foldersPermissionDenied": "No access to music. Allow it in the system settings.",
+  "foldersPicked": "Picked folders",
+  "cancel": "Cancel",
+  "playbackComingSoon": "Playback arrives in the next update",
+  "play": "Play",
+  "accentSky": "Sky",
+  "accentRose": "Rose",
+  "accentMint": "Mint",
+  "accentLavender": "Lavender",
+  "accentAmber": "Amber"
 }

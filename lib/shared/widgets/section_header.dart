@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../core/theme/app_theme.dart';
+import '../../core/theme/app_colors.dart';
 
-/// Small monospace, letter-spaced heading used to group settings and lists,
-/// e.g. `// APPEARANCE`.
+/// Heading that groups settings and list sections.
 class SectionHeader extends StatelessWidget {
   const SectionHeader(this.title, {super.key});
 
@@ -12,15 +11,12 @@ class SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 10),
       child: Text(
-        '// ${title.toUpperCase()}',
-        style: TextStyle(
-          fontFamily: AppFonts.mono,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 1.5,
-          color: Theme.of(context).colorScheme.primary,
+        title,
+        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+          fontWeight: FontWeight.w700,
+          color: AppColors.textSecondary,
         ),
       ),
     );

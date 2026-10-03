@@ -1,37 +1,45 @@
 import 'package:flutter/material.dart';
 
-/// The fixed (non-accent) palette: pure black base for OLED screens, a few
-/// near-black surface steps for depth, and muted text tones.
+/// Base palette of the "glass" look: a deep blue-grey canvas (never pure
+/// black), translucent white layers for panels and soft white text tones.
 ///
-/// Accent colors are user-selectable — see [NeonAccent].
+/// Colour comes from the blurred artwork behind the UI (see
+/// AmbientBackground) and from the user-selectable [Accent].
 abstract final class AppColors {
-  static const background = Color(0xFF000000);
-  static const surface = Color(0xFF0A0A0F);
-  static const surfaceRaised = Color(0xFF12121A);
-  static const surfaceHighest = Color(0xFF1A1A24);
-  static const outline = Color(0xFF23232F);
+  /// Canvas under the ambient background.
+  static const base = Color(0xFF0B0C10);
 
-  static const textPrimary = Color(0xFFEDEDF2);
-  static const textSecondary = Color(0xFF8A8A9A);
-  static const textDisabled = Color(0xFF4A4A58);
+  /// Opaque surface for overlays that float above content (menus, dialogs,
+  /// snack bars) where translucency would hurt legibility.
+  static const overlay = Color(0xF21A1C24);
 
-  static const error = Color(0xFFFF3B5C);
+  /// Translucent layers ("glass"), weakest to strongest.
+  static const glass = Color(0x0FFFFFFF); // 6 %
+  static const glassStrong = Color(0x1AFFFFFF); // 10 %
+  static const glassHighlight = Color(0x26FFFFFF); // 15 %
+  static const glassBorder = Color(0x1AFFFFFF);
+
+  static const textPrimary = Color(0xFFF5F6FA);
+  static const textSecondary = Color(0x9EFFFFFF); // 62 %
+  static const textTertiary = Color(0x61FFFFFF); // 38 %
+
+  static const error = Color(0xFFFF6B7D);
 }
 
-/// Neon accent the whole UI is tinted with. Stored in settings by [name], so
-/// renaming a value is a breaking change for saved preferences.
-enum NeonAccent {
-  cyan(Color(0xFF00F0FF)),
-  magenta(Color(0xFFFF2A6D)),
-  acid(Color(0xFFC6FF00)),
-  violet(Color(0xFFA259FF));
+/// Accent colour, chosen in Settings. Soft, slightly desaturated tones that
+/// sit well on top of any artwork. Stored by [name] in settings — renaming a
+/// value resets users to the default.
+enum Accent {
+  sky(Color(0xFF7DB8FF)),
+  rose(Color(0xFFFF8FB8)),
+  mint(Color(0xFF6FE3B8)),
+  lavender(Color(0xFFB59CFF)),
+  amber(Color(0xFFFFBE76));
 
-  const NeonAccent(this.color);
+  const Accent(this.color);
 
   final Color color;
 
-  static NeonAccent fromName(String? name) => NeonAccent.values.firstWhere(
-    (a) => a.name == name,
-    orElse: () => NeonAccent.cyan,
-  );
+  static Accent fromName(String? name) =>
+      Accent.values.firstWhere((a) => a.name == name, orElse: () => Accent.sky);
 }

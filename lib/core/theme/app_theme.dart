@@ -7,7 +7,7 @@ abstract final class AppFonts {
   /// Main UI text (Latin + Cyrillic).
   static const ui = 'Inter';
 
-  /// Technical details: durations, bitrates, counters.
+  /// Numbers that should not jitter: durations, counters.
   static const mono = 'JetBrainsMono';
 
   /// Logo only — the font has no Cyrillic glyphs.
@@ -18,38 +18,45 @@ abstract final class AppFonts {
 abstract final class AppMotion {
   static const fast = Duration(milliseconds: 150);
   static const normal = Duration(milliseconds: 250);
+  static const slow = Duration(milliseconds: 600);
   static const curve = Curves.easeOutCubic;
 }
 
-/// Builds the dark cyberpunk theme around the chosen [accent].
-abstract final class AppTheme {
-  /// Chamfered corners are the signature shape: cards, buttons and dialogs
-  /// use them instead of rounded corners.
-  static const chamfer = BeveledRectangleBorder(
-    borderRadius: BorderRadius.all(Radius.circular(8)),
-  );
+/// Corner radii — glass panels are softly rounded.
+abstract final class AppRadius {
+  static const small = 8.0;
+  static const medium = 14.0;
+  static const large = 20.0;
 
-  static ThemeData dark(NeonAccent accent) {
-    final neon = accent.color;
+  static const pill = StadiumBorder();
+}
+
+/// Builds the glass theme around the chosen [accent].
+///
+/// Scaffolds and app bars are transparent: the ambient (blurred artwork)
+/// background drawn by the app shell shows through every screen.
+abstract final class AppTheme {
+  static ThemeData dark(Accent accent) {
+    final tint = accent.color;
     final scheme =
         ColorScheme.fromSeed(
-          seedColor: neon,
+          seedColor: tint,
           brightness: Brightness.dark,
         ).copyWith(
-          primary: neon,
-          onPrimary: AppColors.background,
-          secondary: neon,
-          onSecondary: AppColors.background,
-          surface: AppColors.background,
+          primary: tint,
+          onPrimary: AppColors.base,
+          secondary: tint,
+          onSecondary: AppColors.base,
+          surface: AppColors.base,
           onSurface: AppColors.textPrimary,
           onSurfaceVariant: AppColors.textSecondary,
-          surfaceContainerLowest: AppColors.background,
-          surfaceContainerLow: AppColors.surface,
-          surfaceContainer: AppColors.surface,
-          surfaceContainerHigh: AppColors.surfaceRaised,
-          surfaceContainerHighest: AppColors.surfaceHighest,
-          outline: AppColors.outline,
-          outlineVariant: AppColors.outline,
+          surfaceContainerLowest: AppColors.base,
+          surfaceContainerLow: AppColors.overlay,
+          surfaceContainer: AppColors.overlay,
+          surfaceContainerHigh: AppColors.overlay,
+          surfaceContainerHighest: AppColors.overlay,
+          outline: AppColors.glassBorder,
+          outlineVariant: AppColors.glassBorder,
           error: AppColors.error,
         );
 
@@ -58,169 +65,269 @@ abstract final class AppTheme {
       brightness: Brightness.dark,
       colorScheme: scheme,
       fontFamily: AppFonts.ui,
-      scaffoldBackgroundColor: AppColors.background,
-      splashFactory: InkSparkle.splashFactory,
+      scaffoldBackgroundColor: Colors.transparent,
+      canvasColor: AppColors.base,
+      // Plain ripples: calm, and cheaper than the sparkle shader.
+      splashFactory: InkRipple.splashFactory,
+      highlightColor: AppColors.glass,
+      hoverColor: AppColors.glass,
+      splashColor: AppColors.glassStrong,
+    );
+
+    const overlayShape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.all(Radius.circular(AppRadius.large)),
+      side: BorderSide(color: AppColors.glassBorder),
     );
 
     return base.copyWith(
-      textTheme: base.textTheme.apply(
-        bodyColor: AppColors.textPrimary,
-        displayColor: AppColors.textPrimary,
-      ),
+      textTheme: base.textTheme
+          .apply(
+            bodyColor: AppColors.textPrimary,
+            displayColor: AppColors.textPrimary,
+          )
+          .copyWith(
+            headlineMedium: base.textTheme.headlineMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.5,
+              color: AppColors.textPrimary,
+            ),
+            headlineSmall: base.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.3,
+              color: AppColors.textPrimary,
+            ),
+          ),
       appBarTheme: const AppBarTheme(
-        backgroundColor: AppColors.background,
+        backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
         titleTextStyle: TextStyle(
           fontFamily: AppFonts.ui,
-          fontSize: 22,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.5,
+          fontSize: 26,
+          fontWeight: FontWeight.w800,
+          letterSpacing: -0.5,
           color: AppColors.textPrimary,
         ),
       ),
       cardTheme: const CardThemeData(
-        color: AppColors.surface,
+        color: AppColors.glass,
         elevation: 0,
         margin: EdgeInsets.zero,
-        shape: BeveledRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(8)),
-          side: BorderSide(color: AppColors.outline),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(AppRadius.medium)),
+          side: BorderSide(color: AppColors.glassBorder),
         ),
       ),
       dividerTheme: const DividerThemeData(
-        color: AppColors.outline,
+        color: AppColors.glassBorder,
         thickness: 1,
         space: 1,
       ),
-      listTileTheme: ListTileThemeData(
+      listTileTheme: const ListTileThemeData(
         iconColor: AppColors.textSecondary,
-        selectedColor: neon,
-        selectedTileColor: neon.withValues(alpha: 0.08),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(AppRadius.medium)),
+        ),
+      ),
+      tabBarTheme: const TabBarThemeData(
+        labelColor: AppColors.textPrimary,
+        unselectedLabelColor: AppColors.textSecondary,
+        indicator: ShapeDecoration(
+          color: AppColors.glassHighlight,
+          shape: AppRadius.pill,
+        ),
+        indicatorSize: TabBarIndicatorSize.tab,
+        dividerColor: Colors.transparent,
+        labelPadding: EdgeInsets.symmetric(horizontal: 18),
+        labelStyle: TextStyle(
+          fontFamily: AppFonts.ui,
+          fontWeight: FontWeight.w600,
+        ),
+        splashBorderRadius: BorderRadius.all(Radius.circular(40)),
+        overlayColor: WidgetStatePropertyAll(AppColors.glass),
       ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: AppColors.surface,
+        backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
-        indicatorColor: neon.withValues(alpha: 0.14),
-        indicatorShape: chamfer,
-        height: 64,
+        indicatorColor: AppColors.glassHighlight,
+        indicatorShape: AppRadius.pill,
+        height: 68,
         labelTextStyle: WidgetStateProperty.resolveWith(
           (states) => TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w600,
-            letterSpacing: 0.4,
             color: states.contains(WidgetState.selected)
-                ? neon
-                : AppColors.textSecondary,
+                ? AppColors.textPrimary
+                : AppColors.textTertiary,
           ),
         ),
         iconTheme: WidgetStateProperty.resolveWith(
           (states) => IconThemeData(
             color: states.contains(WidgetState.selected)
-                ? neon
+                ? tint
                 : AppColors.textSecondary,
           ),
         ),
       ),
       navigationRailTheme: NavigationRailThemeData(
-        backgroundColor: AppColors.surface,
-        indicatorColor: neon.withValues(alpha: 0.14),
-        indicatorShape: chamfer,
-        selectedIconTheme: IconThemeData(color: neon),
+        backgroundColor: Colors.transparent,
+        indicatorColor: AppColors.glassHighlight,
+        indicatorShape: AppRadius.pill,
+        selectedIconTheme: IconThemeData(color: tint),
         unselectedIconTheme: const IconThemeData(
           color: AppColors.textSecondary,
         ),
-        selectedLabelTextStyle: TextStyle(
+        selectedLabelTextStyle: const TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w600,
-          color: neon,
+          color: AppColors.textPrimary,
         ),
         unselectedLabelTextStyle: const TextStyle(
           fontSize: 12,
-          color: AppColors.textSecondary,
+          color: AppColors.textTertiary,
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          backgroundColor: neon,
-          foregroundColor: AppColors.background,
-          shape: chamfer,
-          textStyle: const TextStyle(
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.6,
-          ),
+          backgroundColor: tint,
+          foregroundColor: AppColors.base,
+          shape: AppRadius.pill,
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+          textStyle: const TextStyle(fontWeight: FontWeight.w700),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: neon,
-          side: BorderSide(color: neon.withValues(alpha: 0.6)),
-          shape: chamfer,
+          foregroundColor: AppColors.textPrimary,
+          backgroundColor: AppColors.glass,
+          side: const BorderSide(color: AppColors.glassBorder),
+          shape: AppRadius.pill,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(foregroundColor: neon),
+        style: TextButton.styleFrom(foregroundColor: tint),
+      ),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: SegmentedButton.styleFrom(
+          backgroundColor: AppColors.glass,
+          selectedBackgroundColor: AppColors.glassHighlight,
+          foregroundColor: AppColors.textSecondary,
+          selectedForegroundColor: AppColors.textPrimary,
+          side: const BorderSide(color: AppColors.glassBorder),
+        ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: AppColors.surface,
-        hintStyle: const TextStyle(color: AppColors.textSecondary),
+        fillColor: AppColors.glassStrong,
+        hintStyle: const TextStyle(color: AppColors.textTertiary),
+        prefixIconColor: AppColors.textSecondary,
+        suffixIconColor: AppColors.textSecondary,
+        contentPadding: const EdgeInsets.symmetric(vertical: 14),
         border: const OutlineInputBorder(
-          borderSide: BorderSide(color: AppColors.outline),
+          borderRadius: BorderRadius.all(Radius.circular(AppRadius.medium)),
+          borderSide: BorderSide.none,
         ),
         enabledBorder: const OutlineInputBorder(
-          borderSide: BorderSide(color: AppColors.outline),
+          borderRadius: BorderRadius.all(Radius.circular(AppRadius.medium)),
+          borderSide: BorderSide(color: AppColors.glassBorder),
         ),
         focusedBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: neon, width: 1.5),
+          borderRadius: const BorderRadius.all(
+            Radius.circular(AppRadius.medium),
+          ),
+          borderSide: BorderSide(color: tint.withValues(alpha: 0.7)),
         ),
       ),
       dialogTheme: const DialogThemeData(
-        backgroundColor: AppColors.surfaceRaised,
-        shape: BeveledRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(12)),
-          side: BorderSide(color: AppColors.outline),
-        ),
+        backgroundColor: AppColors.overlay,
+        shape: overlayShape,
+      ),
+      popupMenuTheme: const PopupMenuThemeData(
+        color: AppColors.overlay,
+        shape: overlayShape,
       ),
       snackBarTheme: SnackBarThemeData(
-        backgroundColor: AppColors.surfaceRaised,
+        backgroundColor: AppColors.overlay,
         contentTextStyle: const TextStyle(color: AppColors.textPrimary),
-        actionTextColor: neon,
+        actionTextColor: tint,
         behavior: SnackBarBehavior.floating,
-        shape: BeveledRectangleBorder(
-          borderRadius: const BorderRadius.all(Radius.circular(8)),
-          side: BorderSide(color: neon.withValues(alpha: 0.4)),
-        ),
+        shape: overlayShape,
+      ),
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: tint,
+        foregroundColor: AppColors.base,
+        elevation: 2,
+        shape: AppRadius.pill,
       ),
       sliderTheme: SliderThemeData(
-        activeTrackColor: neon,
-        inactiveTrackColor: AppColors.outline,
-        thumbColor: neon,
-        overlayColor: neon.withValues(alpha: 0.12),
-        trackHeight: 3,
+        activeTrackColor: tint,
+        inactiveTrackColor: AppColors.glassStrong,
+        thumbColor: AppColors.textPrimary,
+        overlayColor: tint.withValues(alpha: 0.12),
+        trackHeight: 4,
       ),
       progressIndicatorTheme: ProgressIndicatorThemeData(
-        color: neon,
-        linearTrackColor: AppColors.outline,
+        color: tint,
+        linearTrackColor: AppColors.glassStrong,
+        borderRadius: const BorderRadius.all(Radius.circular(2)),
       ),
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith(
           (s) => s.contains(WidgetState.selected)
-              ? AppColors.background
+              ? AppColors.base
               : AppColors.textSecondary,
         ),
         trackColor: WidgetStateProperty.resolveWith(
-          (s) => s.contains(WidgetState.selected) ? neon : AppColors.surface,
+          (s) => s.contains(WidgetState.selected) ? tint : AppColors.glass,
         ),
-        trackOutlineColor: const WidgetStatePropertyAll(AppColors.outline),
+        trackOutlineColor: const WidgetStatePropertyAll(AppColors.glassBorder),
       ),
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
-          TargetPlatform.android: FadeForwardsPageTransitionsBuilder(),
-          TargetPlatform.linux: FadeForwardsPageTransitionsBuilder(),
+          TargetPlatform.android: _GlassPageTransitionsBuilder(),
+          TargetPlatform.linux: _GlassPageTransitionsBuilder(),
         },
+      ),
+    );
+  }
+}
+
+/// Cross-fade with a short upward drift. Pages are transparent (the ambient
+/// background shows through), so the outgoing page must fade out as well —
+/// stock transitions assume opaque pages and would show both at once.
+class _GlassPageTransitionsBuilder extends PageTransitionsBuilder {
+  const _GlassPageTransitionsBuilder();
+
+  @override
+  Duration get transitionDuration => AppMotion.normal;
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    final incoming = CurvedAnimation(parent: animation, curve: AppMotion.curve);
+    final outgoing = CurvedAnimation(
+      parent: secondaryAnimation,
+      curve: AppMotion.curve,
+    );
+    return FadeTransition(
+      opacity: ReverseAnimation(outgoing),
+      child: FadeTransition(
+        opacity: incoming,
+        child: SlideTransition(
+          position: Tween(
+            begin: const Offset(0, 0.03),
+            end: Offset.zero,
+          ).animate(incoming),
+          child: child,
+        ),
       ),
     );
   }

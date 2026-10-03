@@ -20,24 +20,34 @@ enum AppLanguage {
 class AppSettings {
   const AppSettings({
     this.language = AppLanguage.en,
-    this.accent = NeonAccent.cyan,
+    this.accent = Accent.sky,
+    this.scanDeviceMusic = true,
   });
 
   final AppLanguage language;
-  final NeonAccent accent;
+  final Accent accent;
 
-  AppSettings copyWith({AppLanguage? language, NeonAccent? accent}) =>
-      AppSettings(
-        language: language ?? this.language,
-        accent: accent ?? this.accent,
-      );
+  /// Android: include all music indexed by MediaStore, in addition to the
+  /// picked folders. Ignored on desktop.
+  final bool scanDeviceMusic;
+
+  AppSettings copyWith({
+    AppLanguage? language,
+    Accent? accent,
+    bool? scanDeviceMusic,
+  }) => AppSettings(
+    language: language ?? this.language,
+    accent: accent ?? this.accent,
+    scanDeviceMusic: scanDeviceMusic ?? this.scanDeviceMusic,
+  );
 
   @override
   bool operator ==(Object other) =>
       other is AppSettings &&
       other.language == language &&
-      other.accent == accent;
+      other.accent == accent &&
+      other.scanDeviceMusic == scanDeviceMusic;
 
   @override
-  int get hashCode => Object.hash(language, accent);
+  int get hashCode => Object.hash(language, accent, scanDeviceMusic);
 }

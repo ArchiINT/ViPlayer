@@ -4,6 +4,8 @@ analyzer:
   exclude:
     - "**/*.g.dart"
     - lib/l10n/generated/**
+    - test/drift/**/generated/**
+    - lib/core/database/*.steps.dart
     - build/**
     - android/**
     - linux/**
