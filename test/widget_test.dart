@@ -93,4 +93,35 @@ void main() {
 
     await app.dispose(tester);
   });
+
+  testWidgets('tapping a track plays it: mini player, then full player', (
+    tester,
+  ) async {
+    final app = await TestApp.create();
+    await app.addTrack(id: 'a', title: 'Neon Rain', artist: 'Synth Rider');
+    await app.addTrack(id: 'b', title: 'Ghost Signal', artist: 'Synth Rider');
+    await app.pump(tester);
+
+    // Sorted by title: Ghost Signal, Neon Rain.
+    await tester.tap(find.text('Ghost Signal'));
+    await tester.pumpAndSettle();
+
+    expect(app.player.snapshot.value.current!.title, 'Ghost Signal');
+    expect(app.backend.isPlaying, isTrue);
+    expect(find.text('Ghost Signal'), findsNWidgets(2)); // list + mini player
+
+    await tester.tap(find.byTooltip('Next').first);
+    await tester.pumpAndSettle();
+    expect(app.player.snapshot.value.current!.title, 'Neon Rain');
+
+    await tester.tap(find.text('Neon Rain').last); // mini player
+    await tester.pumpAndSettle();
+    expect(find.text('Now playing'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Pause'));
+    await tester.pumpAndSettle();
+    expect(app.backend.isPlaying, isFalse);
+
+    await app.dispose(tester);
+  });
 }

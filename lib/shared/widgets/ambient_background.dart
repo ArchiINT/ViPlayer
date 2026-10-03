@@ -1,23 +1,9 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
-
-/// Artwork behind the whole app. Null shows the accent aura; the player sets
-/// it to the cover of the track that is playing (stage 3).
-final ambientCoverProvider = NotifierProvider<AmbientCover, String?>(
-  AmbientCover.new,
-);
-
-class AmbientCover extends Notifier<String?> {
-  @override
-  String? build() => null;
-
-  void set(String? coverPath) => state = coverPath;
-}
 
 /// Full-bleed backdrop behind the glass UI: the artwork, heavily "blurred",
 /// under a dark scrim — or a soft accent-coloured aura when there is no art.
@@ -43,6 +29,10 @@ class AmbientBackground extends StatelessWidget {
           const ColoredBox(color: AppColors.base),
           AnimatedSwitcher(
             duration: AppMotion.slow,
+            // Children must fill the screen; the default layout would show
+            // the 12 px artwork at its natural (tiny) size.
+            layoutBuilder: (current, previous) =>
+                Stack(fit: StackFit.expand, children: [...previous, ?current]),
             child: coverPath == null
                 ? _Aura(key: ValueKey(accent), accent: accent)
                 : _StretchedArt(key: ValueKey(coverPath), path: coverPath!),

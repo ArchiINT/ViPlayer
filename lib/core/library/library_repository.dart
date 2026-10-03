@@ -57,6 +57,15 @@ class LibraryRepository {
     );
   }
 
+  /// Stores the real length measured by the player.
+  Future<void> updateDuration(String trackId, int durationMs) =>
+      (_db.update(_db.tracks)..where((t) => t.id.equals(trackId))).write(
+        TracksCompanion(
+          durationMs: Value(durationMs),
+          updatedAt: Value(DateTime.now().millisecondsSinceEpoch),
+        ),
+      );
+
   Stream<List<LibraryFolderRow>> watchFolders() => (_db.select(
     _db.libraryFolders,
   )..orderBy([(f) => OrderingTerm.asc(f.path)])).watch();

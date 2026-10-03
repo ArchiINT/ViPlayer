@@ -1,18 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/library/library_models.dart';
+import '../../core/player/player_providers.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
+import '../actions/playback.dart';
 import '../utils/format.dart';
 import 'cover_art.dart';
 
 /// One row in any track list: a faint glass pill, separated from its
-/// neighbours by a small gap.
+/// neighbours by a small gap. The playing track is highlighted; long press
+/// or right click opens the track menu (play next, add to queue, …).
 ///
 /// Fixed height ([extent], gap included) so lists can use `itemExtent`,
 /// which keeps scrolling through huge libraries cheap.
-class TrackTile extends StatelessWidget {
+class TrackTile extends ConsumerWidget {
   const TrackTile({
     super.key,
     required this.track,
@@ -32,9 +36,14 @@ class TrackTile extends StatelessWidget {
   final bool showAlbum;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
+    // Each row rebuilds only when *its* playing state flips.
+    final isCurrent = ref.watch(
+      currentTrackProvider.select((t) => t?.id == track.id),
+    );
+    final accent = theme.colorScheme.primary;
     final artist = track.artist.isEmpty ? l10n.unknownArtist : track.artist;
     final subtitle = showAlbum && track.album.isNotEmpty
         ? '$artist · ${track.album}'
@@ -44,16 +53,24 @@ class TrackTile extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, _gap / 2, 12, _gap / 2),
       child: Material(
-        color: AppColors.glass,
+        color: isCurrent ? AppColors.glassHighlight : AppColors.glass,
         borderRadius: radius,
         child: InkWell(
           onTap: onTap,
+          onLongPress: () => _openMenu(context),
+          onSecondaryTapUp: (d) =>
+              showTrackMenu(context, track, d.globalPosition),
           borderRadius: radius,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10),
             child: Row(
               children: [
-                if (leadingNumber != null)
+                if (isCurrent && leadingNumber != null)
+                  SizedBox(
+                    width: 44,
+                    child: Icon(Icons.graphic_eq_rounded, color: accent),
+                  )
+                else if (leadingNumber != null)
                   SizedBox(
                     width: 44,
                     child: Text(
@@ -80,6 +97,7 @@ class TrackTile extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodyLarge?.copyWith(
                           fontWeight: FontWeight.w600,
+                          color: isCurrent ? accent : null,
                         ),
                       ),
                       const SizedBox(height: 3),
@@ -117,6 +135,15 @@ class TrackTile extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  void _openMenu(BuildContext context) {
+    final box = context.findRenderObject()! as RenderBox;
+    showTrackMenu(
+      context,
+      track,
+      box.localToGlobal(box.size.centerRight(Offset.zero)),
     );
   }
 }

@@ -9,7 +9,11 @@ import 'package:viplayer/core/database/app_database.dart';
 import 'package:viplayer/core/library/library_providers.dart';
 import 'package:viplayer/core/library/library_scanner.dart';
 import 'package:viplayer/core/platform/app_directories.dart';
+import 'package:viplayer/core/player/player_providers.dart';
+import 'package:viplayer/core/player/player_service.dart';
 import 'package:viplayer/core/settings/settings_providers.dart';
+
+import 'fake_audio_backend.dart';
 
 /// Scanner stand-in for widget tests: the real one touches the file system
 /// and spawns isolates, which widget tests' fake clock cannot drive.
@@ -36,11 +40,14 @@ class FakeLibraryScanner extends LibraryScanner {
 }
 
 class TestApp {
-  TestApp._(this.db, this.prefs, this.scanner);
+  TestApp._(this.db, this.prefs, this.scanner, this.backend)
+    : player = PlayerService(backend, prefs);
 
   final AppDatabase db;
   final SharedPreferences prefs;
   final FakeLibraryScanner scanner;
+  final FakeAudioBackend backend;
+  final PlayerService player;
 
   static Future<TestApp> create({Map<String, Object> prefs = const {}}) async {
     SharedPreferences.setMockInitialValues(prefs);
@@ -56,6 +63,7 @@ class TestApp {
       db,
       await SharedPreferences.getInstance(),
       FakeLibraryScanner(db),
+      FakeAudioBackend(),
     );
   }
 
@@ -77,6 +85,7 @@ class TestApp {
           ),
           appDatabaseProvider.overrideWithValue(db),
           libraryScannerProvider.overrideWithValue(scanner),
+          playerServiceProvider.overrideWithValue(player),
         ],
         child: const ViPlayerApp(),
       ),
@@ -87,6 +96,8 @@ class TestApp {
   /// not outlive the test.
   Future<void> dispose(WidgetTester tester) async {
     await tester.pumpWidget(const SizedBox());
+    // Real async: closing streams must not wait on the fake test clock.
+    await tester.runAsync(player.dispose);
     await tester.runAsync(db.close);
   }
 
