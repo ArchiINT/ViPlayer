@@ -1,0 +1,45 @@
+{
+  "@@locale": "ru",
+
+  "appTitle": "ViPlayer",
+
+  "navLibrary": "Медиатека",
+  "navSearch": "Поиск",
+  "navPlaylists": "Плейлисты",
+  "navDownloads": "Загрузки",
+  "navSettings": "Настройки",
+
+  "libraryEmptyTitle": "Медиатека пуста",
+  "libraryEmptyBody": "Добавьте папки с музыкой в настройках или скачайте треки — они появятся здесь.",
+
+  "searchHint": "Треки, исполнители, альбомы",
+  "searchEmptyBody": "Поиск по медиатеке. Онлайн-поиск появится вместе с загрузками.",
+
+  "playlistsLiked": "Понравившееся",
+  "playlistsEmptyTitle": "Плейлистов пока нет",
+  "playlistsEmptyBody": "Создавайте плейлисты, чтобы упорядочить музыку. Они синхронизируются между устройствами.",
+
+  "downloadsByLink": "По ссылке",
+  "downloadsByName": "По названию",
+  "downloadsEmptyTitle": "Пока ничего не скачано",
+  "downloadsEmptyBody": "Вставьте ссылку YouTube Music, SoundCloud или Spotify либо найдите трек по названию.",
+
+  "settingsAppearance": "Оформление",
+  "settingsLanguage": "Язык",
+  "settingsAccent": "Акцентный цвет",
+  "settingsLibrary": "Медиатека",
+  "settingsMusicFolders": "Папки с музыкой",
+  "settingsDownloadFolder": "Папка загрузок",
+  "settingsAbout": "О приложении",
+  "settingsVersion": "Версия {version}",
+
+  "languageEnglish": "English",
+  "languageRussian": "Русский",
+
+  "accentCyan": "Циан",
+  "accentMagenta": "Маджента",
+  "accentAcid": "Кислотный",
+  "accentViolet": "Фиолетовый",
+
+  "comingSoon": "Скоро"
+}

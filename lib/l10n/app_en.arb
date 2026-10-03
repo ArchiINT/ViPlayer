@@ -1,0 +1,50 @@
+{
+  "@@locale": "en",
+
+  "appTitle": "ViPlayer",
+
+  "navLibrary": "Library",
+  "navSearch": "Search",
+  "navPlaylists": "Playlists",
+  "navDownloads": "Downloads",
+  "navSettings": "Settings",
+
+  "libraryEmptyTitle": "Your library is empty",
+  "libraryEmptyBody": "Add music folders in Settings or download tracks — they will show up here.",
+
+  "searchHint": "Tracks, artists, albums",
+  "searchEmptyBody": "Search your library. Online search arrives with the downloads update.",
+
+  "playlistsLiked": "Liked",
+  "playlistsEmptyTitle": "No playlists yet",
+  "playlistsEmptyBody": "Create playlists to organize your music. They sync between your devices.",
+
+  "downloadsByLink": "By link",
+  "downloadsByName": "By name",
+  "downloadsEmptyTitle": "Nothing downloaded yet",
+  "downloadsEmptyBody": "Paste a YouTube Music, SoundCloud or Spotify link, or search by track name.",
+
+  "settingsAppearance": "Appearance",
+  "settingsLanguage": "Language",
+  "settingsAccent": "Accent color",
+  "settingsLibrary": "Library",
+  "settingsMusicFolders": "Music folders",
+  "settingsDownloadFolder": "Download folder",
+  "settingsAbout": "About",
+  "settingsVersion": "Version {version}",
+  "@settingsVersion": {
+    "placeholders": {
+      "version": { "type": "String" }
+    }
+  },
+
+  "languageEnglish": "English",
+  "languageRussian": "Русский",
+
+  "accentCyan": "Cyan",
+  "accentMagenta": "Magenta",
+  "accentAcid": "Acid",
+  "accentViolet": "Violet",
+
+  "comingSoon": "Coming soon"
+}

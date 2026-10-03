@@ -1,0 +1,61 @@
+name: viplayer
+description: "Cross-platform music player with LAN sync and downloads"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.13.5
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Localization (EN default, RU)
+  flutter_localizations:
+    sdk: flutter
+  intl: ^0.20.3
+
+  # State management & navigation
+  flutter_riverpod: ^3.4.3
+  go_router: ^18.0.2
+
+  # Local database
+  drift: ^2.35.1
+  drift_flutter: ^0.3.1
+
+  # Files & settings
+  path_provider: ^2.1.6
+  path: ^1.9.1
+  shared_preferences: ^2.5.5
+  package_info_plus: ^10.2.2
+
+  # Stable ids for cross-device sync
+  uuid: ^4.6.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^6.0.0
+
+  # Code generation for Drift (run via scripts or `dart run build_runner build`)
+  build_runner: ^2.16.1
+  drift_dev: ^2.35.1
+
+flutter:
+  uses-material-design: true
+  generate: true # localizations from lib/l10n/*.arb (see l10n.yaml)
+
+  fonts:
+    # Bundled (not fetched at runtime) so the app looks the same offline.
+    # All three are SIL Open Font License — see assets/fonts/OFL-*.txt.
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter.ttf
+    - family: JetBrainsMono
+      fonts:
+        - asset: assets/fonts/JetBrainsMono.ttf
+    - family: Orbitron # Latin only — used for the logo, never for UI text
+      fonts:
+        - asset: assets/fonts/Orbitron.ttf
