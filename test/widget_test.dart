@@ -1,7 +1,53 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:http/http.dart' as http;
+import 'package:viplayer/core/download/download_models.dart';
+import 'package:viplayer/core/download/download_providers.dart';
+import 'package:viplayer/core/download/download_service.dart';
+import 'package:viplayer/core/download/tools/tagger.dart';
+import 'package:viplayer/core/library/cover_store.dart';
+import 'package:viplayer/core/library/library_repository.dart';
+
 import 'helpers/test_app.dart';
+
+/// Resolves any link to one fixed track and "downloads" it instantly.
+class _FakeDownloads extends DownloadService {
+  _FakeDownloads(LibraryRepository library)
+    : super(
+        client: http.Client(),
+        downloadDirectory: '/tmp/none',
+        library: library,
+        importFile: (_) async => 'id',
+        tagger: const DartTagger(),
+      );
+
+  static const track = DownloadCandidate(
+    service: MusicService.soundcloud,
+    sourceId: '1',
+    sourceUrl: 'https://soundcloud.com/a/b',
+    title: 'Backtoback',
+    artist: 'angelrot',
+    durationMs: 180000,
+  );
+
+  @override
+  Future<ResolvedLink> resolve(String text) async =>
+      const ResolvedLink(service: MusicService.soundcloud, items: [track]);
+
+  @override
+  Future<String> download(
+    DownloadCandidate c, {
+    required DownloadFormat format,
+    void Function(DownloadStage stage, double? progress)? onProgress,
+    Completer<void>? cancel,
+  }) async {
+    onProgress?.call(DownloadStage.downloading, 0.5);
+    return 'id';
+  }
+}
 
 void main() {
   testWidgets('starts on an empty library in English by default', (
@@ -158,6 +204,38 @@ void main() {
     await tester.tap(find.text('Liked'));
     await tester.pumpAndSettle();
     expect(find.text('Neon Rain'), findsOneWidget);
+
+    await app.dispose(tester);
+  });
+
+  testWidgets('download by link: preview, download, see it done', (
+    tester,
+  ) async {
+    final app = await TestApp.create();
+    app.extraOverrides = [
+      downloadServiceProvider.overrideWith(
+        (ref) => _FakeDownloads(
+          LibraryRepository(app.db, const CoverStore('/covers')),
+        ),
+      ),
+    ];
+    await app.pump(tester);
+
+    await tester.tap(find.byIcon(Icons.download_outlined).first);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byType(TextField),
+      'https://soundcloud.com/a/b',
+    );
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Backtoback'), findsOneWidget);
+    await tester.tap(find.text('Download'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('angelrot — Backtoback'), findsOneWidget);
+    expect(find.text('In your library'), findsOneWidget);
 
     await app.dispose(tester);
   });

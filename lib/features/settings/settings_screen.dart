@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import '../../core/download/download_models.dart';
+import '../../core/download/download_providers.dart';
 import '../../core/library/library_providers.dart';
 import '../../core/platform/app_directories.dart';
 import '../../core/router/app_router.dart';
@@ -100,6 +102,8 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ],
           ),
+          SectionHeader(l10n.settingsDownloads),
+          const _DownloadSettings(),
           SectionHeader(l10n.settingsAbout),
           GlassGroup(
             children: [
@@ -178,6 +182,103 @@ class _AccentSwatch extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Download format and, on the desktop, the yt-dlp engine.
+class _DownloadSettings extends ConsumerStatefulWidget {
+  const _DownloadSettings();
+
+  @override
+  ConsumerState<_DownloadSettings> createState() => _DownloadSettingsState();
+}
+
+class _DownloadSettingsState extends ConsumerState<_DownloadSettings> {
+  bool _updating = false;
+
+  Future<void> _updateYtDlp() async {
+    final l10n = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _updating = true);
+    try {
+      final version = await ref
+          .read(ytDlpProvider)!
+          .update(ref.read(httpClientProvider));
+      ref.invalidate(ytDlpVersionProvider);
+      messenger.showSnackBar(
+        SnackBar(content: Text(l10n.ytdlpUpdated(version ?? '?'))),
+      );
+    } catch (_) {
+      messenger.showSnackBar(SnackBar(content: Text(l10n.ytdlpUpdateFailed)));
+    } finally {
+      if (mounted) setState(() => _updating = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final formats = ref.watch(availableFormatsProvider);
+    final current = ref.watch(settingsProvider).downloadFormat;
+    final hasYtDlp = ref.watch(ytDlpProvider) != null;
+    final version = ref.watch(ytDlpVersionProvider);
+
+    String label(DownloadFormat f) => switch (f) {
+      DownloadFormat.m4a => l10n.formatM4a,
+      DownloadFormat.opus => l10n.formatOpus,
+      DownloadFormat.mp3 => l10n.formatMp3,
+    };
+
+    return GlassGroup(
+      children: [
+        ListTile(
+          leading: const Icon(Icons.audio_file_outlined),
+          title: Text(l10n.settingsFormat),
+          subtitle: Text(
+            label(formats.contains(current) ? current : formats.first),
+          ),
+          trailing: formats.length < 2
+              ? null
+              : PopupMenuButton<DownloadFormat>(
+                  icon: const Icon(Icons.expand_more_rounded),
+                  initialValue: current,
+                  onSelected: ref
+                      .read(settingsProvider.notifier)
+                      .setDownloadFormat,
+                  itemBuilder: (context) => [
+                    for (final f in formats)
+                      CheckedPopupMenuItem(
+                        value: f,
+                        checked: f == current,
+                        child: Text(label(f)),
+                      ),
+                  ],
+                ),
+        ),
+        if (hasYtDlp)
+          ListTile(
+            leading: const Icon(Icons.terminal_rounded),
+            title: Text(switch (version) {
+              AsyncData(value: final v?) => l10n.ytdlpVersion(v),
+              AsyncData() => l10n.ytdlpMissing,
+              _ => 'yt-dlp',
+            }),
+            trailing: _updating
+                ? const SizedBox.square(
+                    dimension: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : OutlinedButton(
+                    onPressed: _updateYtDlp,
+                    child: Text(
+                      version.value == null
+                          ? l10n.ytdlpInstall
+                          : l10n.ytdlpUpdate,
+                    ),
+                  ),
+          ),
+      ],
     );
   }
 }

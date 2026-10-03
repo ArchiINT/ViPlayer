@@ -28,6 +28,35 @@ class LibraryRepository {
         .map((rows) => rows.map(_mapper.map).toList(growable: false));
   }
 
+  /// Records where a downloaded track came from (also how duplicates are
+  /// recognised before downloading again).
+  Future<void> markSource(
+    String trackId, {
+    required String source,
+    required String sourceUrl,
+  }) => (_db.update(_db.tracks)..where((t) => t.id.equals(trackId))).write(
+    TracksCompanion(
+      source: Value(source),
+      sourceUrl: Value(sourceUrl),
+      updatedAt: Value(DateTime.now().millisecondsSinceEpoch),
+    ),
+  );
+
+  /// True if a track from [sourceUrl] already has a file on this device.
+  Future<bool> hasLocalTrackFrom(String sourceUrl) async {
+    final rows = await _db
+        .customSelect(
+          'SELECT 1 FROM tracks t '
+          'WHERE t.source_url = ? AND t.deleted = 0 '
+          'AND EXISTS (SELECT 1 FROM track_files f WHERE f.track_id = t.id) '
+          'LIMIT 1',
+          variables: [Variable.withString(sourceUrl)],
+          readsFrom: {_db.tracks, _db.trackFiles},
+        )
+        .get();
+    return rows.isNotEmpty;
+  }
+
   /// Stores the real length measured by the player.
   Future<void> updateDuration(String trackId, int durationMs) =>
       (_db.update(_db.tracks)..where((t) => t.id.equals(trackId))).write(

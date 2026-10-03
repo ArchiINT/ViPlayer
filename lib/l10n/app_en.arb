@@ -199,5 +199,62 @@
   "clearHistory": "Clear history",
   "clearHistoryConfirm": "Clear the listening history on all your devices?",
   "playlistEmptyTitle": "This playlist is empty",
-  "playlistEmptyBody": "Add tracks from the library: long press or right-click a track → Add to playlist."
+  "playlistEmptyBody": "Add tracks from the library: long press or right-click a track → Add to playlist.",
+  "downloadsLinkHint": "Paste a YouTube, SoundCloud or Spotify link",
+  "paste": "Paste",
+  "find": "Find",
+  "download": "Download",
+  "downloadAll": "Download all ({count})",
+  "@downloadAll": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadsQueue": "Queue",
+  "clearFinished": "Clear finished",
+  "retry": "Retry",
+  "jobQueued": "Waiting",
+  "jobMatching": "Finding on YouTube…",
+  "jobDownloading": "Downloading",
+  "jobTagging": "Writing tags…",
+  "jobSaving": "Adding to library…",
+  "jobDone": "In your library",
+  "jobSkipped": "Already in your library",
+  "jobCancelled": "Cancelled",
+  "failUnsupportedLink": "This link is not supported. Use a YouTube, SoundCloud or Spotify link.",
+  "failNotOnThisDevice": "Not available on the phone — download it on the PC (or with another app: files in your Music folder appear here automatically).",
+  "failNotFound": "Nothing found at this link.",
+  "failNoMatch": "Could not find this track on YouTube.",
+  "failNetwork": "Network problem. Check the connection and try again.",
+  "failToolMissing": "yt-dlp is not installed. Install it in Settings → Downloads.",
+  "failFailed": "Download failed",
+  "downloadsByNameSoon": "Search by name arrives in the next update.",
+  "settingsDownloads": "Downloads",
+  "settingsFormat": "Format",
+  "formatM4a": "AAC (.m4a) — recommended",
+  "formatOpus": "Opus — best quality",
+  "formatMp3": "MP3 — for old devices",
+  "ytdlpVersion": "yt-dlp {version}",
+  "@ytdlpVersion": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "ytdlpMissing": "yt-dlp not found",
+  "ytdlpInstall": "Install",
+  "ytdlpUpdate": "Update",
+  "ytdlpUpdated": "yt-dlp updated to {version}",
+  "@ytdlpUpdated": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "ytdlpUpdateFailed": "Could not update yt-dlp",
+  "phoneDownloadsNote": "On the phone only SoundCloud downloads work. Download YouTube and Spotify on the PC."
 }

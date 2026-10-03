@@ -1,0 +1,5 @@
+tags:
+  # Talk to real services (YouTube, SoundCloud, Spotify). Skipped by default;
+  # run with: flutter test --tags online
+  online:
+    skip: "online test — run with --tags online"

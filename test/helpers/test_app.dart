@@ -2,10 +2,12 @@ import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:viplayer/app.dart';
 import 'package:viplayer/core/database/app_database.dart';
+import 'package:viplayer/core/download/download_providers.dart';
 import 'package:viplayer/core/library/library_providers.dart';
 import 'package:viplayer/core/library/library_scanner.dart';
 import 'package:viplayer/core/platform/app_directories.dart';
@@ -67,6 +69,9 @@ class TestApp {
     );
   }
 
+  /// Extra provider overrides for a single test.
+  List<Override> extraOverrides = [];
+
   Future<void> pump(WidgetTester tester) async {
     await pumpNoSettle(tester);
     await tester.pumpAndSettle();
@@ -86,6 +91,9 @@ class TestApp {
           appDatabaseProvider.overrideWithValue(db),
           libraryScannerProvider.overrideWithValue(scanner),
           playerServiceProvider.overrideWithValue(player),
+          // No real yt-dlp processes in widget tests.
+          ytDlpProvider.overrideWithValue(null),
+          ...extraOverrides,
         ],
         child: const ViPlayerApp(),
       ),

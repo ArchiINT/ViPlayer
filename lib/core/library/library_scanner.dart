@@ -164,6 +164,30 @@ class LibraryScanner {
     );
   }
 
+  /// Adds one file (a fresh download) to the library without a full scan.
+  /// Returns the id of its track.
+  Future<String> importFile(String path, {int? folderId}) async {
+    final stat = await File(path).stat();
+    final found = FoundFile(
+      path: path,
+      sizeBytes: stat.size,
+      modifiedMs: stat.modified.millisecondsSinceEpoch,
+      folderId: folderId,
+    );
+    final scanned = await _readInIsolate([found], coversDir);
+    final known = {
+      for (final row in await (_db.select(
+        _db.trackFiles,
+      )..where((f) => f.path.equals(path))).get())
+        row.path: row,
+    };
+    await _save(scanned, known, await _loadFingerprints());
+    final file = await (_db.select(
+      _db.trackFiles,
+    )..where((f) => f.path.equals(path))).getSingle();
+    return file.trackId;
+  }
+
   // Isolate entry points are static so their closures capture only the
   // arguments — a closure created inside an instance method could capture
   // `this` (and the database), which cannot be sent to another isolate.

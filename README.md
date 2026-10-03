@@ -7,7 +7,8 @@ SoundCloud, Spotify-ссылки) и **полная синхронизация**
 
 > Статус: готовы **медиатека** (сканирование, теги, обложки, альбомы,
 > исполнители, поиск, папки), **плеер** (очередь, фон, медиаклавиши, уведомление),
-> **плейлисты, «Понравившееся», история**. Дальше — скачивание по ссылке.
+> **плейлисты, «Понравившееся», история**, **скачивание по ссылке**
+> (YouTube, SoundCloud, Spotify). Дальше — скачивание по названию.
 > План и принятые решения — [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Документация
@@ -25,9 +26,9 @@ SoundCloud, Spotify-ссылки) и **полная синхронизация**
 - **Flutter** (stable) в `~/flutter` — или укажите `FLUTTER=/путь/к/flutter/bin/flutter`.
 - **Системные пакеты (Arch):**
   ```bash
-  sudo pacman -S --needed clang cmake ninja pkgconf gtk3 jdk17-openjdk mpv yt-dlp ffmpeg android-tools zip
+  sudo pacman -S --needed clang cmake ninja pkgconf gtk3 jdk17-openjdk mpv yt-dlp deno ffmpeg android-tools zip
   ```
-  `mpv` — движок воспроизведения (libmpv), `yt-dlp` + `ffmpeg` — скачивание на ПК,
+  `mpv` — движок воспроизведения (libmpv), `yt-dlp` + `deno` + `ffmpeg` — скачивание на ПК (deno нужен yt-dlp для YouTube),
   `android-tools` — `adb` для установки на телефон.
 - **Android SDK** (командные инструменты или Android Studio).
 
@@ -54,6 +55,7 @@ flutter run -d linux                                         # или -d <тел
 | `flutter analyze && flutter test` | проверки |
 | `scripts/perf-test.sh <папка>` | замер плавности (время кадров) |
 | `scripts/playback-test.sh <папка>` | проверка воспроизведения через настоящий движок (без звука) |
+| `flutter test --tags online --run-skipped` | проверка источников скачивания на реальных сервисах |
 
 Подробно об обновлении телефона без потери данных — [docs/RELEASE.md](docs/RELEASE.md).
 

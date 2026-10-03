@@ -36,13 +36,18 @@ dependencies:
   permission_handler: ^13.0.2
   crypto: ^3.0.7
 
-  # Stable ids for cross-device sync
-  uuid: ^4.6.0
+  # Downloads: HTTP, YouTube metadata/search (audio via yt-dlp on desktop)
+  http: ^1.6.0
+  youtube_explode_dart: ^3.1.0
+
+  # Playback: engine (libmpv), system media controls (Android, MPRIS)
   media_kit: ^1.2.6
   media_kit_libs_audio: ^1.0.7
   audio_service: ^0.18.19
   audio_service_mpris: ^0.2.1
-  audio_session: ^0.2.4
+
+  # Stable ids for cross-device sync
+  uuid: ^4.6.0
 
 dev_dependencies:
   flutter_test:

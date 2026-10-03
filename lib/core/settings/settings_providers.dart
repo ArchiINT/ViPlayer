@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../download/download_models.dart';
 import '../theme/app_colors.dart';
 import 'app_settings.dart';
 
@@ -19,6 +20,7 @@ class SettingsController extends Notifier<AppSettings> {
   static const _languageKey = 'settings.language';
   static const _accentKey = 'settings.accent';
   static const _scanDeviceMusicKey = 'settings.scanDeviceMusic';
+  static const _downloadFormatKey = 'settings.downloadFormat';
 
   SharedPreferences get _prefs => ref.read(sharedPreferencesProvider);
 
@@ -27,6 +29,9 @@ class SettingsController extends Notifier<AppSettings> {
     language: AppLanguage.fromCode(_prefs.getString(_languageKey)),
     accent: Accent.fromName(_prefs.getString(_accentKey)),
     scanDeviceMusic: _prefs.getBool(_scanDeviceMusicKey) ?? true,
+    downloadFormat: DownloadFormat.fromName(
+      _prefs.getString(_downloadFormatKey),
+    ),
   );
 
   Future<void> setLanguage(AppLanguage language) async {
@@ -42,5 +47,10 @@ class SettingsController extends Notifier<AppSettings> {
   Future<void> setScanDeviceMusic(bool value) async {
     state = state.copyWith(scanDeviceMusic: value);
     await _prefs.setBool(_scanDeviceMusicKey, value);
+  }
+
+  Future<void> setDownloadFormat(DownloadFormat format) async {
+    state = state.copyWith(downloadFormat: format);
+    await _prefs.setString(_downloadFormatKey, format.name);
   }
 }
