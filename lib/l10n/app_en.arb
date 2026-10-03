@@ -369,5 +369,32 @@
   "syncCopyAllSubtitle": "Otherwise only Liked tracks and offline playlists are copied.",
   "syncSecurityNote": "Devices sync directly over your Wi-Fi, no server. Traffic is not encrypted — pair only on networks you trust.",
   "syncNotRunning": "Sync is not running on this device (network unavailable).",
-  "connect": "Connect"
+  "connect": "Connect",
+  "saveToDevice": "Save to this device",
+  "savedToDevice": "Saved to this device",
+  "onYourNetwork": "Streaming from a device at home",
+  "downloadOnDevice": "Download on {name}",
+  "@downloadOnDevice": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "sentToDevice": "Sent to {name}. It arrives on this phone with the next sync.",
+  "@sentToDevice": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "viaDevice": "via {name}",
+  "@viaDevice": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  }
 }

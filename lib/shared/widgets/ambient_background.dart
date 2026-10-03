@@ -60,10 +60,12 @@ class _StretchedArt extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Image.file(
-      File(path),
+    final source = path.startsWith('http')
+        ? NetworkImage(path)
+        : FileImage(File(path)) as ImageProvider;
+    return Image(
+      image: ResizeImage(source, width: AmbientBackground._sampleSize),
       fit: BoxFit.cover,
-      cacheWidth: AmbientBackground._sampleSize,
       filterQuality: FilterQuality.high,
       gaplessPlayback: true,
       errorBuilder: (context, _, _) =>

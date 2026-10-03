@@ -66,6 +66,33 @@ class DownloadCandidate {
         trackNumber: trackNumber,
       );
 
+  Map<String, Object?> toJson() => {
+    'service': service.name,
+    'sourceId': sourceId,
+    'sourceUrl': sourceUrl,
+    'title': title,
+    'artist': artist,
+    'durationMs': durationMs,
+    'album': album,
+    'coverUrl': coverUrl,
+    'year': year,
+    'trackNumber': trackNumber,
+  };
+
+  factory DownloadCandidate.fromJson(Map<String, Object?> j) =>
+      DownloadCandidate(
+        service: MusicService.values.byName(j['service']! as String),
+        sourceId: j['sourceId']! as String,
+        sourceUrl: j['sourceUrl']! as String,
+        title: j['title']! as String,
+        artist: j['artist']! as String,
+        durationMs: (j['durationMs']! as num).toInt(),
+        album: j['album'] as String?,
+        coverUrl: j['coverUrl'] as String?,
+        year: (j['year'] as num?)?.toInt(),
+        trackNumber: (j['trackNumber'] as num?)?.toInt(),
+      );
+
   @override
   bool operator ==(Object other) =>
       other is DownloadCandidate &&

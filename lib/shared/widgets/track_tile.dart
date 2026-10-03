@@ -124,6 +124,17 @@ class TrackTile extends ConsumerWidget {
                     ],
                   ),
                 ),
+                if (track.isRemote) ...[
+                  const SizedBox(width: 8),
+                  Tooltip(
+                    message: l10n.onYourNetwork,
+                    child: const Icon(
+                      Icons.wifi_rounded,
+                      size: 16,
+                      color: AppColors.textTertiary,
+                    ),
+                  ),
+                ],
                 if (track.liked) ...[
                   const SizedBox(width: 8),
                   Icon(

@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:viplayer/core/database/app_database.dart';
+import 'package:viplayer/core/download/download_models.dart';
 import 'package:viplayer/core/library/cover_store.dart';
 import 'package:viplayer/core/library/library_repository.dart';
 import 'package:viplayer/core/library/library_scanner.dart';
@@ -44,6 +45,7 @@ class _Device {
       kind: kind,
       deviceName: id.toUpperCase(),
       downloadDirectory: p.join(dir.path, 'music'),
+      coversDirectory: covers,
       importFile: scanner.importFile,
       enableDiscovery: false,
       httpPort: 0, // any free port: two devices in one process
@@ -175,6 +177,116 @@ void main() {
     // And the like reached the PC.
     expect((await pc.db.select(pc.db.tracks).getSingle()).liked, isTrue);
   });
+
+  group('streaming and remote downloads', () {
+    Future<List<int>> get(String url, {String? range}) async {
+      final client = HttpClient();
+      final request = await client.getUrl(Uri.parse(url));
+      if (range != null) request.headers.set('range', range);
+      final response = await request.close();
+      final bytes = await response.fold<List<int>>([], (a, b) => a..addAll(b));
+      client.close();
+      return [response.statusCode, ...bytes];
+    }
+
+    test('stream a PC track with ranges; tampered links are refused', () async {
+      await pc.addMusic(['test/fixtures/audio/neon_rain.m4a']);
+      await pair();
+      await phone.sync.syncWith('pc');
+      final id = (await pc.db.select(pc.db.tracks).getSingle()).id;
+
+      final url = phone.sync.streamUrl(id)!;
+      final original = File('test/fixtures/audio/neon_rain.m4a')
+          .readAsBytesSync();
+
+      final part = await get(url, range: 'bytes=100-199');
+      expect(part.first, HttpStatus.partialContent);
+      expect(part.sublist(1), original.sublist(100, 200));
+
+      final whole = await get(url);
+      expect(whole.first, HttpStatus.ok);
+      expect(whole.length - 1, original.length);
+
+      final cover = await get(phone.sync.coverUrl(id)!);
+      expect(cover.first, HttpStatus.ok);
+
+      // Flip the first token character (always a real change).
+      final forged = url.replaceFirstMapped(
+        RegExp(r'tok=([0-9a-f])'),
+        (m) => 'tok=${m.group(1) == '0' ? '1' : '0'}',
+      );
+      expect((await get(forged)).first, HttpStatus.unauthorized);
+    });
+
+    test('phone asks the PC to download; the file comes back', () async {
+      final remote = _FakeRemote();
+      pc.sync.remoteDownloads = remote;
+      await pair();
+      const wanted = DownloadCandidate(
+        service: MusicService.youtube,
+        sourceId: 'vid',
+        sourceUrl: 'https://www.youtube.com/watch?v=vid',
+        title: 'Neon Rain',
+        artist: 'Synth Rider',
+        durationMs: 3000,
+      );
+
+      await phone.sync.remoteDownload('pc', [wanted]);
+      expect(remote.enqueued.single.sourceUrl, wanted.sourceUrl);
+
+      // The PC "downloads" it: file in its library, source remembered.
+      await pc.addMusic(['test/fixtures/audio/neon_rain.m4a']);
+      await LibraryRepository(pc.db, const CoverStore('/')).markSource(
+        (await pc.db.select(pc.db.tracks).getSingle()).id,
+        source: 'youtube',
+        sourceUrl: wanted.sourceUrl,
+      );
+
+      await phone.sync.syncWith('pc');
+      expect(await phone.titles(), ['Neon Rain']);
+    });
+
+    test('preview through the PC', () async {
+      final remote = _FakeRemote()
+        ..previewFile = 'test/fixtures/audio/neon_rain.m4a';
+      pc.sync.remoteDownloads = remote;
+      await pair();
+      const c = DownloadCandidate(
+        service: MusicService.youtube,
+        sourceId: 'vid',
+        sourceUrl: 'https://www.youtube.com/watch?v=vid',
+        title: 't',
+        artist: 'a',
+        durationMs: 1,
+      );
+      final stream = await phone.sync.remotePreview('pc', c);
+      expect((await get(stream.url)).first, HttpStatus.ok);
+    });
+
+    test('save a streamed track to the phone', () async {
+      await pc.addMusic(['test/fixtures/audio/neon_rain.m4a']);
+      await pair();
+      await phone.sync.syncWith('pc');
+      final id = (await pc.db.select(pc.db.tracks).getSingle()).id;
+
+      await phone.sync.saveToDevice(id);
+      expect(await phone.titles(), ['Neon Rain']);
+    });
+  });
+}
+
+/// Records what a phone asked the PC to do.
+class _FakeRemote implements RemoteDownloads {
+  final enqueued = <DownloadCandidate>[];
+  String previewFile = '';
+
+  @override
+  Future<void> enqueue(List<DownloadCandidate> items) async =>
+      enqueued.addAll(items);
+
+  @override
+  Future<PreviewStream> preview(DownloadCandidate candidate) async =>
+      PreviewStream(previewFile);
 }
 
 /// SharedPreferences view with its own key space, so two "devices" in one
@@ -191,6 +303,12 @@ class _IsolatedPrefs implements SharedPreferences {
       _inner.setString('$_prefix$key', value);
   @override
   bool? getBool(String key) => _inner.getBool('$_prefix$key');
+  @override
+  List<String>? getStringList(String key) =>
+      _inner.getStringList('$_prefix$key');
+  @override
+  Future<bool> setStringList(String key, List<String> value) =>
+      _inner.setStringList('$_prefix$key', value);
   @override
   Future<bool> setBool(String key, bool value) =>
       _inner.setBool('$_prefix$key', value);

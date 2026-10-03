@@ -5,6 +5,7 @@ import '../../../core/download/download_models.dart';
 import '../../../core/download/download_providers.dart';
 import '../../../core/download/download_service.dart';
 import '../../../core/player/preview_player.dart';
+import '../../../core/sync/sync_providers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../l10n/generated/app_localizations.dart';
@@ -44,7 +45,9 @@ class _SearchPanelState extends ConsumerState<SearchPanel> {
       _query = query;
       _selected.clear();
     });
-    final results = await ref.read(downloadServiceProvider).search(query);
+    final results = await ref
+        .read(downloadServiceProvider)
+        .search(query, services: _services());
     if (!mounted || _query != query) return;
     setState(() {
       _results = results;
@@ -52,16 +55,54 @@ class _SearchPanelState extends ConsumerState<SearchPanel> {
     });
   }
 
-  void _downloadSelected() {
-    ref.read(previewPlayerProvider).stop();
-    ref.read(downloadQueueProvider).enqueue(_selected.toList());
-    setState(_selected.clear);
+  /// Sources to search: what this device downloads itself, plus YouTube
+  /// when a PC at home can download it for us.
+  List<MusicService> _services() {
+    final own = ref.read(downloadServiceProvider).searchableServices;
+    final helper = ref.read(syncServiceProvider).downloadPeer;
+    return [
+      if (helper != null && !own.contains(MusicService.youtube))
+        MusicService.youtube,
+      ...own,
+    ];
+  }
+
+  Future<void> _downloadSelected() async {
+    final service = ref.read(downloadServiceProvider);
+    final messenger = ScaffoldMessenger.of(context);
+    final l10n = AppLocalizations.of(context);
+    await ref.read(previewPlayerProvider).stop();
+    final local = [
+      for (final c in _selected)
+        if (service.supports(c.service)) c,
+    ];
+    final remote = [
+      for (final c in _selected)
+        if (!service.supports(c.service)) c,
+    ];
+    ref.read(downloadQueueProvider).enqueue(local);
+    if (remote.isNotEmpty) {
+      final sync = ref.read(syncServiceProvider);
+      final peerId = sync.downloadPeer;
+      if (peerId != null) {
+        await sync.remoteDownload(peerId, remote);
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              l10n.sentToDevice(sync.snapshot.value.paired[peerId]!.name),
+            ),
+          ),
+        );
+      }
+    }
+    if (mounted) setState(_selected.clear);
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final services = ref.watch(downloadServiceProvider).searchableServices;
+    ref.watch(syncSnapshotProvider.select((s) => s.nearby.length));
+    final services = _services();
     final shown = [
       for (final s in services)
         if (_filter == null || _filter == s) s,
@@ -248,12 +289,15 @@ class _PreviewButton extends ConsumerWidget {
     return Tooltip(
       message: playing ? l10n.stopListening : l10n.listen,
       child: GestureDetector(
-        onTap: () => ref
-            .read(previewPlayerProvider)
-            .toggle(
-              candidate,
-              () => ref.read(downloadServiceProvider).preview(candidate),
-            ),
+        onTap: () => ref.read(previewPlayerProvider).toggle(candidate, () {
+          final service = ref.read(downloadServiceProvider);
+          if (service.supports(candidate.service)) {
+            return service.preview(candidate);
+          }
+          // Phone + YouTube: the PC prepares the preview and streams it.
+          final sync = ref.read(syncServiceProvider);
+          return sync.remotePreview(sync.downloadPeer!, candidate);
+        }),
         child: SizedBox.square(
           dimension: _size,
           child: Stack(

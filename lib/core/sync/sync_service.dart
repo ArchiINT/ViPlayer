@@ -2,15 +2,25 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:drift/drift.dart' show Variable;
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
 import '../database/app_database.dart';
+import '../download/download_models.dart';
 import '../download/download_service.dart';
 import 'changeset.dart';
 import 'discovery.dart';
 import 'peer_store.dart';
 import 'sync_auth.dart';
+
+/// What a desktop offers to its phone: downloads the phone cannot do
+/// itself (YouTube) and previews of them. Implemented by the download
+/// module; kept as an interface so sync does not depend on it.
+abstract interface class RemoteDownloads {
+  Future<void> enqueue(List<DownloadCandidate> items);
+  Future<PreviewStream> preview(DownloadCandidate candidate);
+}
 
 enum PeerPhase { idle, syncing, error }
 
@@ -38,6 +48,7 @@ class SyncSnapshot {
     this.nearby = const {},
     this.paired = const {},
     this.states = const {},
+    this.remoteFiles = const {},
     this.pendingCode,
   });
 
@@ -50,6 +61,10 @@ class SyncSnapshot {
   final Map<String, PairedPeer> paired;
   final Map<String, PeerSyncState> states;
 
+  /// Track ids each paired peer has a file for (from its last listing):
+  /// what can be streamed from it.
+  final Map<String, Set<String>> remoteFiles;
+
   /// Code to show while another device is pairing with this one.
   final PendingPairing? pendingCode;
 
@@ -59,6 +74,7 @@ class SyncSnapshot {
     Map<String, NearbyDevice>? nearby,
     Map<String, PairedPeer>? paired,
     Map<String, PeerSyncState>? states,
+    Map<String, Set<String>>? remoteFiles,
     PendingPairing? pendingCode,
     bool clearPending = false,
   }) => SyncSnapshot(
@@ -67,6 +83,7 @@ class SyncSnapshot {
     nearby: nearby ?? this.nearby,
     paired: paired ?? this.paired,
     states: states ?? this.states,
+    remoteFiles: remoteFiles ?? this.remoteFiles,
     pendingCode: clearPending ? null : pendingCode ?? this.pendingCode,
   );
 }
@@ -94,6 +111,7 @@ class SyncService {
     required this.kind,
     required String deviceName,
     required this.downloadDirectory,
+    required this.coversDirectory,
     required Future<String> Function(String path) importFile,
     this.discoveryPort = Discovery.defaultPort,
     this.httpPort = defaultHttpPort,
@@ -111,12 +129,24 @@ class SyncService {
   final String deviceId;
   final DeviceKind kind;
   final String downloadDirectory;
+
+  /// Where the library keeps cover images (served to streaming peers).
+  final String coversDirectory;
   final Future<String> Function(String path) _import;
   final int discoveryPort;
   final int httpPort;
   final bool enableDiscovery;
 
   static const defaultHttpPort = 48126;
+
+  /// Desktop only: lets paired phones download and preview through us.
+  RemoteDownloads? remoteDownloads;
+
+  /// How long stream links stay valid (a long album with pauses).
+  static const streamTokenLifetime = Duration(hours: 12);
+
+  /// Previews prepared for phones: id -> local file.
+  final _previews = <String, String>{};
   String _name;
 
   /// Minimum time between two automatic syncs with the same peer.
@@ -394,6 +424,11 @@ class SyncService {
     final available = {
       for (final f in listing) f['id']! as String: f['ext']! as String,
     };
+    _set(
+      _state.copyWith(
+        remoteFiles: {..._state.remoteFiles, peer.id: available.keys.toSet()},
+      ),
+    );
     final wanted = await _wantedTrackIds();
     final todo = [
       for (final id in wanted)
@@ -406,18 +441,11 @@ class SyncService {
       peer.id,
       PeerSyncState(phase: PeerPhase.syncing, filesTotal: todo.length),
     );
-    await Directory(downloadDirectory).create(recursive: true);
     for (final id in todo) {
       final track = await (_db.select(
         _db.tracks,
       )..where((t) => t.id.equals(id))).getSingle();
-      final base = DownloadService.safeFileName(
-        track.artist.isEmpty ? track.title : '${track.artist} - ${track.title}',
-      );
-      var target = File(p.join(downloadDirectory, '$base${available[id]}'));
-      for (var n = 2; target.existsSync(); n++) {
-        target = File(p.join(downloadDirectory, '$base ($n)${available[id]}'));
-      }
+      final target = await _targetFor(track, available[id]!);
       await _download(device, peer, '/file/$id', target);
       await _import(target.path);
       done++;
@@ -435,16 +463,24 @@ class SyncService {
   /// Tracks this device should hold a file for but does not.
   Future<List<String>> _wantedTrackIds() async {
     final everything = kind == DeviceKind.desktop || _store.copyAllToPhone;
+    final requested = _store.requestedDownloads.toList();
+    final conditions = [
+      if (everything) '1',
+      if (!everything) ...[
+        't.liked = 1',
+        't.id IN (SELECT e.track_id FROM playlist_entries e '
+            'JOIN playlists pl ON pl.id = e.playlist_id '
+            'WHERE e.deleted = 0 AND pl.deleted = 0 AND pl.is_offline = 1)',
+      ],
+      if (requested.isNotEmpty)
+        't.source_url IN (${List.filled(requested.length, '?').join(', ')})',
+    ];
     final rows = await _db
         .customSelect(
-          'SELECT t.id FROM tracks t '
-          'WHERE t.deleted = 0 '
+          'SELECT t.id FROM tracks t WHERE t.deleted = 0 '
           'AND NOT EXISTS (SELECT 1 FROM track_files f WHERE f.track_id = t.id) '
-          '${everything ? '' : '''
-          AND (t.liked = 1 OR t.id IN (
-            SELECT e.track_id FROM playlist_entries e
-            JOIN playlists pl ON pl.id = e.playlist_id
-            WHERE e.deleted = 0 AND pl.deleted = 0 AND pl.is_offline = 1))'''}',
+          'AND (${conditions.join(' OR ')})',
+          variables: [for (final u in requested) Variable.withString(u)],
         )
         .get();
     return [for (final r in rows) r.read<String>('id')];
@@ -467,6 +503,16 @@ class SyncService {
           await _onPairRequest(request);
         case ('POST', '/pair/confirm'):
           await _onPairConfirm(request);
+        case ('GET', _)
+            when path.startsWith('/stream/') ||
+                path.startsWith('/cover/') ||
+                path.startsWith('/preview/'):
+          final peer = _authenticateToken(request);
+          if (peer == null) {
+            response.statusCode = HttpStatus.unauthorized;
+            break;
+          }
+          await _handleStreaming(request);
         default:
           final peer = _authenticate(request);
           if (peer == null) {
@@ -529,9 +575,109 @@ class SyncService {
         ..contentType = ContentType.binary
         ..contentLength = await file.length();
       await response.addStream(file.openRead());
+    } else if (request.method == 'POST' && path == '/remote/download') {
+      final remote = remoteDownloads;
+      if (remote == null) {
+        response.statusCode = HttpStatus.notImplemented;
+        return;
+      }
+      final body = await _readJson(request);
+      await remote.enqueue([
+        for (final item in body['items']! as List<Object?>)
+          DownloadCandidate.fromJson(item! as Map<String, Object?>),
+      ]);
+      _sendJson(response, {'ok': true});
+    } else if (request.method == 'POST' && path == '/remote/preview') {
+      final remote = remoteDownloads;
+      if (remote == null) {
+        response.statusCode = HttpStatus.notImplemented;
+        return;
+      }
+      final body = await _readJson(request);
+      final stream = await remote.preview(DownloadCandidate.fromJson(body));
+      if (stream.url.startsWith('http')) {
+        _sendJson(response, {'url': stream.url, 'headers': stream.headers});
+      } else {
+        // A local file: hand out a streaming path for it.
+        final id = '${DateTime.now().microsecondsSinceEpoch}';
+        _previews[id] = stream.url;
+        _sendJson(response, {'path': '/preview/$id'});
+      }
     } else {
       response.statusCode = HttpStatus.notFound;
     }
+  }
+
+  /// Audio, covers and previews for streaming (token-authenticated: media
+  /// players cannot sign each range request).
+  Future<void> _handleStreaming(HttpRequest request) async {
+    final path = request.uri.path;
+    final response = request.response;
+    File? file;
+    var type = ContentType.binary;
+    if (path.startsWith('/preview/')) {
+      final local = _previews[path.substring('/preview/'.length)];
+      file = local == null ? null : File(local);
+    } else {
+      final id = await _canonical(path.substring(path.indexOf('/', 1) + 1));
+      final rows = await (_db.select(
+        _db.trackFiles,
+      )..where((f) => f.trackId.equals(id))).get();
+      if (path.startsWith('/stream/')) {
+        file = rows.isEmpty ? null : File(rows.first.path);
+      } else {
+        final coverId = rows.map((r) => r.coverId).nonNulls.firstOrNull;
+        file = coverId == null ? null : File(p.join(coversDirectory, coverId));
+        type = ContentType('image', 'jpeg');
+      }
+    }
+    if (file == null || !file.existsSync()) {
+      response.statusCode = HttpStatus.notFound;
+      return;
+    }
+    await serveFile(request, file, type);
+  }
+
+  /// Sends [file], honouring a `Range` header (players seek with ranges).
+  static Future<void> serveFile(
+    HttpRequest request,
+    File file,
+    ContentType type,
+  ) async {
+    final response = request.response;
+    final length = await file.length();
+    response.headers
+      ..contentType = type
+      ..set(HttpHeaders.acceptRangesHeader, 'bytes');
+    final range = RegExp(r'^bytes=(\d*)-(\d*)$')
+        .firstMatch(request.headers.value(HttpHeaders.rangeHeader) ?? '');
+    if (range == null) {
+      response.contentLength = length;
+      await response.addStream(file.openRead());
+      return;
+    }
+    var start = int.tryParse(range.group(1)!) ?? 0;
+    var end = int.tryParse(range.group(2)!) ?? length - 1;
+    if (range.group(1)!.isEmpty && range.group(2)!.isNotEmpty) {
+      // "bytes=-500": the last 500 bytes.
+      start = length - end;
+      end = length - 1;
+    }
+    if (start >= length || start > end) {
+      response
+        ..statusCode = HttpStatus.requestedRangeNotSatisfiable
+        ..headers.set(HttpHeaders.contentRangeHeader, 'bytes */$length');
+      return;
+    }
+    end = end.clamp(start, length - 1);
+    response
+      ..statusCode = HttpStatus.partialContent
+      ..contentLength = end - start + 1
+      ..headers.set(
+        HttpHeaders.contentRangeHeader,
+        'bytes $start-$end/$length',
+      );
+    await response.addStream(file.openRead(start, end + 1));
   }
 
   Future<String> _canonical(String trackId) async {
@@ -586,6 +732,23 @@ class SyncService {
       'kind': kind.name,
       'proof': SyncAuth.proof(secret, 'responder'),
     });
+  }
+
+  /// Long-lived link signature for media players (see [streamUrl]).
+  PairedPeer? _authenticateToken(HttpRequest request) {
+    final q = request.uri.queryParameters;
+    final peer = _state.paired[q['from']];
+    final expires = int.tryParse(q['exp'] ?? '');
+    final token = q['tok'];
+    if (peer == null || expires == null || token == null) return null;
+    if (DateTime.now().millisecondsSinceEpoch > expires) return null;
+    final expected = SyncAuth.sign(
+      peer.secret,
+      'TOKEN',
+      request.uri.path,
+      expires,
+    );
+    return SyncAuth.constantTimeEquals(expected, token) ? peer : null;
   }
 
   PairedPeer? _authenticate(HttpRequest request) {
@@ -695,6 +858,145 @@ class SyncService {
       client.close(force: true);
       if (part.existsSync()) await part.delete();
     }
+  }
+
+  // ----------------------------------------------- streaming & remote use
+
+  /// A paired desktop that is on the network now (does downloads for us).
+  String? get downloadPeer {
+    for (final peer in _state.paired.values) {
+      if (peer.kind == DeviceKind.desktop &&
+          _state.nearby.containsKey(peer.id)) {
+        return peer.id;
+      }
+    }
+    return null;
+  }
+
+  /// Online peer that has a file for [trackId], if any.
+  String? _peerWithFile(String trackId) {
+    for (final MapEntry(key: id, value: files) in _state.remoteFiles.entries) {
+      if (files.contains(trackId) &&
+          _state.nearby.containsKey(id) &&
+          _state.paired.containsKey(id)) {
+        return id;
+      }
+    }
+    return null;
+  }
+
+  /// URL to stream [trackId] from a device that has it, or null.
+  String? streamUrl(String trackId) =>
+      _tokenUrl(_peerWithFile(trackId), '/stream/$trackId');
+
+  String? coverUrl(String trackId) =>
+      _tokenUrl(_peerWithFile(trackId), '/cover/$trackId');
+
+  String? _tokenUrl(String? peerId, String path) {
+    if (peerId == null) return null;
+    final peer = _state.paired[peerId]!;
+    final device = _state.nearby[peerId]!;
+    final expires = DateTime.now()
+        .add(streamTokenLifetime)
+        .millisecondsSinceEpoch;
+    final token = SyncAuth.sign(peer.secret, 'TOKEN', path, expires);
+    return Uri(
+      scheme: 'http',
+      host: device.host,
+      port: device.port,
+      path: path,
+      queryParameters: {'from': deviceId, 'exp': '$expires', 'tok': token},
+    ).toString();
+  }
+
+  /// Copies a streamed track to this device.
+  Future<void> saveToDevice(String trackId) async {
+    final peerId = _peerWithFile(trackId);
+    if (peerId == null) {
+      throw const SyncException('device is not on the network');
+    }
+    final track = await (_db.select(
+      _db.tracks,
+    )..where((t) => t.id.equals(trackId))).getSingle();
+    final ext = await _remoteExtension(peerId, trackId);
+    final target = await _targetFor(track, ext);
+    await _download(
+      _nearby(peerId),
+      _state.paired[peerId]!,
+      '/file/$trackId',
+      target,
+    );
+    await _import(target.path);
+  }
+
+  Future<String> _remoteExtension(String peerId, String trackId) async {
+    final listing = await _jsonList(
+      _nearby(peerId),
+      _state.paired[peerId]!,
+      '/files',
+    );
+    return listing.firstWhere(
+          (f) => f['id'] == trackId,
+          orElse: () => const {'ext': '.m4a'},
+        )['ext']!
+        as String;
+  }
+
+  /// Asks a paired desktop to download [items]; their files come to this
+  /// device on the next sync.
+  Future<void> remoteDownload(
+    String peerId,
+    List<DownloadCandidate> items,
+  ) async {
+    final device = _nearby(peerId);
+    await _store.addRequestedDownloads(items.map((c) => c.sourceUrl));
+    await _json(
+      'POST',
+      device.host,
+      device.port,
+      '/remote/download',
+      peer: _state.paired[peerId],
+      body: {
+        'items': [for (final c in items) c.toJson()],
+      },
+    );
+  }
+
+  /// Preview prepared by a paired desktop (e.g. YouTube on a phone).
+  Future<PreviewStream> remotePreview(
+    String peerId,
+    DownloadCandidate candidate,
+  ) async {
+    final device = _nearby(peerId);
+    final response = await _json(
+      'POST',
+      device.host,
+      device.port,
+      '/remote/preview',
+      peer: _state.paired[peerId],
+      body: candidate.toJson(),
+    );
+    if (response['url'] case final String url) {
+      return PreviewStream(
+        url,
+        headers: (response['headers'] as Map<String, Object?>? ?? const {}).map(
+          (k, v) => MapEntry(k, '$v'),
+        ),
+      );
+    }
+    return PreviewStream(_tokenUrl(peerId, response['path']! as String)!);
+  }
+
+  Future<File> _targetFor(TrackRow track, String ext) async {
+    await Directory(downloadDirectory).create(recursive: true);
+    final base = DownloadService.safeFileName(
+      track.artist.isEmpty ? track.title : '${track.artist} - ${track.title}',
+    );
+    var target = File(p.join(downloadDirectory, '$base$ext'));
+    for (var n = 2; target.existsSync(); n++) {
+      target = File(p.join(downloadDirectory, '$base ($n)$ext'));
+    }
+    return target;
   }
 
   // -------------------------------------------------------------- helpers

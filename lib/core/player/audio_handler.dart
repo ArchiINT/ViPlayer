@@ -52,9 +52,12 @@ class ViAudioHandler extends BaseAudioHandler with SeekHandler {
                 artist: track.artist.isEmpty ? null : track.artist,
                 album: track.album.isEmpty ? null : track.album,
                 duration: Duration(milliseconds: track.durationMs),
-                artUri: track.coverPath == null
-                    ? null
-                    : Uri.file(track.coverPath!),
+                artUri: switch (track.coverPath) {
+                  null => null,
+                  // Streamed from another device: a URL, not a file.
+                  final c when c.startsWith('http') => Uri.parse(c),
+                  final c => Uri.file(c),
+                },
               ),
       );
     } else if (track != null &&

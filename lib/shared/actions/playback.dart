@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/library/library_models.dart';
 import '../../core/player/player_providers.dart';
 import '../../core/router/app_router.dart';
+import '../../core/sync/sync_providers.dart';
 import '../../l10n/generated/app_localizations.dart';
 import 'collection_actions.dart';
 
@@ -22,6 +23,7 @@ void playTrack(
 }
 
 enum _TrackAction {
+  saveToDevice,
   playNext,
   addToQueue,
   like,
@@ -56,6 +58,14 @@ Future<void> showTrackMenu(
       Offset.zero & overlay.size,
     ),
     items: [
+      if (track.isRemote)
+        PopupMenuItem(
+          value: _TrackAction.saveToDevice,
+          child: ListTile(
+            leading: const Icon(Icons.download_for_offline_outlined),
+            title: Text(l10n.saveToDevice),
+          ),
+        ),
       PopupMenuItem(
         value: _TrackAction.playNext,
         child: ListTile(
@@ -119,6 +129,16 @@ Future<void> showTrackMenu(
   if (action == null || !context.mounted) return;
 
   switch (action) {
+    case _TrackAction.saveToDevice:
+      try {
+        await ProviderScope.containerOf(
+          context,
+          listen: false,
+        ).read(syncServiceProvider).saveToDevice(track.id);
+        messenger.showSnackBar(SnackBar(content: Text(l10n.savedToDevice)));
+      } on Exception catch (e) {
+        messenger.showSnackBar(SnackBar(content: Text('$e')));
+      }
     case _TrackAction.playNext:
       await player.playNext(track);
       messenger.showSnackBar(SnackBar(content: Text(l10n.willPlayNext)));

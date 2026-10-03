@@ -75,6 +75,7 @@ class PeerStore {
   static const _peersKey = 'sync.peers';
   static const _nameKey = 'sync.deviceName';
   static const _copyAllKey = 'sync.copyAllToPhone';
+  static const _requestedKey = 'sync.requestedDownloads';
 
   Map<String, PairedPeer> load() {
     final raw = _prefs.getString(_peersKey);
@@ -97,4 +98,12 @@ class PeerStore {
   bool get copyAllToPhone => _prefs.getBool(_copyAllKey) ?? false;
   Future<void> setCopyAllToPhone(bool value) =>
       _prefs.setBool(_copyAllKey, value);
+
+  /// Source links this device asked a PC to download: their files are
+  /// fetched on the next sync, whatever the copy rules say.
+  Set<String> get requestedDownloads =>
+      (_prefs.getStringList(_requestedKey) ?? const []).toSet();
+
+  Future<void> addRequestedDownloads(Iterable<String> urls) => _prefs
+      .setStringList(_requestedKey, {...requestedDownloads, ...urls}.toList());
 }

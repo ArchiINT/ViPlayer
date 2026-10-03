@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/download/download_models.dart';
 import '../../../core/download/download_providers.dart';
+import '../../../core/sync/sync_providers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../l10n/generated/app_localizations.dart';
@@ -64,8 +65,22 @@ class _LinkPanelState extends ConsumerState<LinkPanel> {
     }
   }
 
-  void _download(List<DownloadCandidate> items) {
-    ref.read(downloadQueueProvider).enqueue(items);
+  Future<void> _download(List<DownloadCandidate> items) async {
+    if (items.isEmpty) return;
+    final service = ref.read(downloadServiceProvider);
+    if (service.supports(items.first.service)) {
+      ref.read(downloadQueueProvider).enqueue(items);
+    } else {
+      // Phone + YouTube/Spotify: the PC at home downloads it.
+      final messenger = ScaffoldMessenger.of(context);
+      final l10n = AppLocalizations.of(context);
+      final sync = ref.read(syncServiceProvider);
+      final peerId = sync.downloadPeer!;
+      final name = sync.snapshot.value.paired[peerId]!.name;
+      await sync.remoteDownload(peerId, items);
+      messenger.showSnackBar(SnackBar(content: Text(l10n.sentToDevice(name))));
+    }
+    if (!mounted) return;
     setState(() {
       _result = null;
       _controller.clear();
@@ -77,6 +92,18 @@ class _LinkPanelState extends ConsumerState<LinkPanel> {
     final l10n = AppLocalizations.of(context);
     final service = ref.watch(downloadServiceProvider);
     final result = _result;
+    // A PC at home can download what this device cannot.
+    final helper = ref.watch(
+      syncSnapshotProvider.select(
+        (_) => ref.read(syncServiceProvider).downloadPeer,
+      ),
+    );
+    final helperName = helper == null
+        ? null
+        : ref.read(syncSnapshotProvider).paired[helper]?.name;
+    String actionFor(ResolvedLink r) => service.supports(r.service)
+        ? l10n.download
+        : l10n.downloadOnDevice(helperName ?? '');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -115,15 +142,17 @@ class _LinkPanelState extends ConsumerState<LinkPanel> {
             child: switch ((_loading, _error, result)) {
               (true, _, _) => const LinearProgressIndicator(),
               (_, final error?, _) => _Message(text: l10n.failure(error)),
-              (_, _, final r?) when !service.supports(r.service) => _Message(
-                text: l10n.failNotOnThisDevice,
-              ),
+              (_, _, final r?)
+                  when !service.supports(r.service) && helper == null =>
+                _Message(text: l10n.failNotOnThisDevice),
               (_, _, final r?) when !r.isCollection => _SingleResult(
                 item: r.items.single,
+                actionLabel: actionFor(r),
                 onDownload: () => _download(r.items),
               ),
               (_, _, final r?) => _CollectionResult(
                 result: r,
+                actionLabel: actionFor(r),
                 selected: _selected,
                 onToggle: (c) => setState(
                   () => _selected.contains(c)
@@ -163,14 +192,18 @@ class _Message extends StatelessWidget {
 }
 
 class _SingleResult extends StatelessWidget {
-  const _SingleResult({required this.item, required this.onDownload});
+  const _SingleResult({
+    required this.item,
+    required this.actionLabel,
+    required this.onDownload,
+  });
 
   final DownloadCandidate item;
+  final String actionLabel;
   final VoidCallback onDownload;
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
     final textTheme = Theme.of(context).textTheme;
     return GlassPanel(
       padding: const EdgeInsets.all(12),
@@ -211,7 +244,7 @@ class _SingleResult extends StatelessWidget {
           FilledButton.icon(
             onPressed: onDownload,
             icon: const Icon(Icons.download_rounded),
-            label: Text(l10n.download),
+            label: Text(actionLabel),
           ),
         ],
       ),
@@ -222,12 +255,14 @@ class _SingleResult extends StatelessWidget {
 class _CollectionResult extends StatelessWidget {
   const _CollectionResult({
     required this.result,
+    required this.actionLabel,
     required this.selected,
     required this.onToggle,
     required this.onDownload,
   });
 
   final ResolvedLink result;
+  final String actionLabel;
   final Set<DownloadCandidate> selected;
   final void Function(DownloadCandidate) onToggle;
   final VoidCallback onDownload;
@@ -256,7 +291,7 @@ class _CollectionResult extends StatelessWidget {
             trailing: FilledButton.icon(
               onPressed: selected.isEmpty ? null : onDownload,
               icon: const Icon(Icons.download_rounded),
-              label: Text(l10n.downloadAll(selected.length)),
+              label: Text('$actionLabel (${selected.length})'),
             ),
           ),
           const Divider(),

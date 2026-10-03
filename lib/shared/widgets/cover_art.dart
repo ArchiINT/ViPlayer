@@ -33,12 +33,17 @@ class CoverArt extends StatelessWidget {
 
     final image = path == null
         ? _Placeholder(size: size)
-        : Image.file(
-            File(path!),
+        : Image(
+            // Remote tracks (streamed from another device) have URL covers.
+            image: ResizeImage(
+              path!.startsWith('http')
+                  ? NetworkImage(path!)
+                  : FileImage(File(path!)) as ImageProvider,
+              width: pixelSize,
+            ),
             width: size,
             height: size,
             fit: BoxFit.cover,
-            cacheWidth: pixelSize,
             gaplessPlayback: true,
             filterQuality: FilterQuality.medium,
             frameBuilder: (context, child, frame, sync) => sync

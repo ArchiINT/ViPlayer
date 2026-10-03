@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../database/app_database.dart';
 import '../platform/app_directories.dart';
 import '../settings/settings_providers.dart';
+import '../sync/sync_providers.dart';
 import 'audio_files.dart';
 import 'cover_store.dart';
 import 'library_models.dart';
@@ -90,10 +91,14 @@ Stream<T> _throttleLatest<T>(Stream<T> source, Duration interval) {
   return controller.stream;
 }
 
-/// Albums/artists/search index derived from [libraryTracksProvider].
-final libraryIndexProvider = Provider<AsyncValue<LibraryIndex>>(
-  (ref) => ref.watch(libraryTracksProvider).whenData(LibraryIndex.build),
-);
+/// Albums/artists/search index: local tracks plus tracks streamable from a
+/// paired device at home (see remoteTracksProvider).
+final libraryIndexProvider = Provider<AsyncValue<LibraryIndex>>((ref) {
+  final remote = ref.watch(remoteTracksProvider).value ?? const [];
+  return ref
+      .watch(libraryTracksProvider)
+      .whenData((local) => LibraryIndex.build([...local, ...remote]));
+});
 
 final libraryFoldersProvider = StreamProvider<List<LibraryFolderRow>>(
   (ref) => ref.watch(libraryRepositoryProvider).watchFolders(),

@@ -39,10 +39,13 @@ class LibraryTrack {
   final int? likedAt;
   final int addedAt;
 
-  /// Local audio file.
+  /// Local audio file, or a stream URL for a track that lives on another
+  /// device at home ([isRemote]).
   final String path;
 
-  /// Absolute path of the cover image, if the track has one.
+  bool get isRemote => path.startsWith('http');
+
+  /// Cover image: a local path, or a URL for remote tracks.
   final String? coverPath;
 
   /// Artist an album is filed under (album artist wins for compilations).
