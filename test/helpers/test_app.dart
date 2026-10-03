@@ -13,9 +13,11 @@ import 'package:viplayer/core/library/library_scanner.dart';
 import 'package:viplayer/core/platform/app_directories.dart';
 import 'package:viplayer/core/player/player_providers.dart';
 import 'package:viplayer/core/player/player_service.dart';
+import 'package:viplayer/core/player/preview_player.dart';
 import 'package:viplayer/core/settings/settings_providers.dart';
 
 import 'fake_audio_backend.dart';
+import 'fake_preview_backend.dart';
 
 /// Scanner stand-in for widget tests: the real one touches the file system
 /// and spawns isolates, which widget tests' fake clock cannot drive.
@@ -50,6 +52,8 @@ class TestApp {
   final FakeLibraryScanner scanner;
   final FakeAudioBackend backend;
   final PlayerService player;
+  final previewBackend = FakePreviewBackend();
+  late final preview = PreviewPlayer(previewBackend);
 
   static Future<TestApp> create({Map<String, Object> prefs = const {}}) async {
     SharedPreferences.setMockInitialValues(prefs);
@@ -86,6 +90,7 @@ class TestApp {
             const AppDirectories(
               support: '/tmp/support',
               downloads: '/tmp/downloads',
+              cache: '/tmp/cache',
             ),
           ),
           appDatabaseProvider.overrideWithValue(db),
@@ -93,6 +98,7 @@ class TestApp {
           playerServiceProvider.overrideWithValue(player),
           // No real yt-dlp processes in widget tests.
           ytDlpProvider.overrideWithValue(null),
+          previewPlayerProvider.overrideWithValue(preview),
           ...extraOverrides,
         ],
         child: const ViPlayerApp(),
@@ -106,6 +112,7 @@ class TestApp {
     await tester.pumpWidget(const SizedBox());
     // Real async: closing streams must not wait on the fake test clock.
     await tester.runAsync(player.dispose);
+    await tester.runAsync(preview.dispose);
     await tester.runAsync(db.close);
   }
 

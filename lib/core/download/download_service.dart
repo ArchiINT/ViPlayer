@@ -16,6 +16,16 @@ import 'tools/tagger.dart';
 import 'tools/ytdlp.dart';
 import 'track_matcher.dart';
 
+/// Results of searching one service.
+class SearchOutcome {
+  const SearchOutcome(this.items, {this.failure});
+
+  final List<DownloadCandidate> items;
+
+  /// Set when this service could not be searched (others may still work).
+  final DownloadFailure? failure;
+}
+
 /// Steps of one download, for progress display.
 enum DownloadStage { matching, downloading, tagging, saving }
 
@@ -32,6 +42,7 @@ class DownloadService {
     required this.downloadDirectory,
     required this._library,
     required Future<String> Function(String path) importFile,
+    String? previewCacheDirectory,
     required this._tagger,
     this._ytdlp,
     YoutubeSource? youtube,
@@ -39,6 +50,7 @@ class DownloadService {
     SpotifySource? spotify,
   }) : _http = client,
        _import = importFile,
+       _previewCache = previewCacheDirectory,
        _youtube = youtube ?? YoutubeSource(),
        _soundcloud = soundcloud ?? SoundCloudSource(client),
        _spotify = spotify ?? SpotifySource(client);
@@ -47,6 +59,10 @@ class DownloadService {
   final String downloadDirectory;
   final LibraryRepository _library;
   final Future<String> Function(String path) _import;
+
+  /// Where YouTube previews are fetched to (see [preview]); null disables
+  /// the cache (previews then fail on YouTube).
+  final String? _previewCache;
   final Tagger _tagger;
 
   /// Null on Android: only sources with a pure-Dart download work there.
@@ -80,6 +96,84 @@ class DownloadService {
       MusicService.soundcloud => await _soundcloud.resolve(link.url),
       MusicService.spotify => await _spotify.resolve(link),
     };
+  }
+
+  /// Services that "by name" search covers on this device: only those it can
+  /// also download from.
+  List<MusicService> get searchableServices => [
+    if (canDownloadYoutube) MusicService.youtube,
+    MusicService.soundcloud,
+  ];
+
+  /// Searches each service in [services] (in parallel). A failing service
+  /// yields an error entry instead of failing the whole search.
+  Future<Map<MusicService, SearchOutcome>> search(
+    String query, {
+    List<MusicService>? services,
+  }) async {
+    final wanted = services ?? searchableServices;
+    final results = await Future.wait([
+      for (final s in wanted) _searchOne(s, query),
+    ]);
+    return {for (final (i, s) in wanted.indexed) s: results[i]};
+  }
+
+  Future<SearchOutcome> _searchOne(MusicService service, String query) async {
+    try {
+      final items = switch (service) {
+        MusicService.youtube =>
+          (await _youtube.search(query, limit: 25))
+              // Not songs: shorts and hour-long mixes.
+              .where((c) => c.durationMs >= 30000 && c.durationMs <= 20 * 60000)
+              .toList(),
+        MusicService.soundcloud => await _soundcloud.search(query),
+        MusicService.spotify => const <DownloadCandidate>[],
+      };
+      return SearchOutcome(items);
+    } on DownloadException catch (e) {
+      return SearchOutcome(const [], failure: e.reason);
+    } on Exception {
+      return const SearchOutcome([], failure: DownloadFailure.network);
+    }
+  }
+
+  /// Something to listen to [c] before downloading it.
+  ///
+  /// SoundCloud streams directly. YouTube stream URLs are unreliable for
+  /// plain players (YouTube randomly answers 403 past the first megabyte),
+  /// so on the desktop the track is fetched with yt-dlp into a preview cache
+  /// (~2 s) and played from the file; a later download reuses that file.
+  Future<PreviewStream> preview(DownloadCandidate c) async {
+    switch (c.service) {
+      case MusicService.soundcloud:
+        return _soundcloud.stream(c.sourceId);
+      case MusicService.youtube || MusicService.spotify
+          when _ytdlp != null && _previewCache != null:
+        final videoUrl = c.service == MusicService.spotify
+            ? (await _matchOnYoutube(c)).sourceUrl
+            : c.sourceUrl;
+        final file = await _cachedPreview(videoUrl);
+        return PreviewStream(file.path);
+      default:
+        throw const DownloadException(DownloadFailure.notOnThisDevice);
+    }
+  }
+
+  /// Preview file for a YouTube video, fetched once.
+  Future<File> _cachedPreview(String videoUrl) async {
+    final dir = Directory(
+      p.join(_previewCache!, Uri.parse(videoUrl).queryParameters['v']),
+    );
+    final existing = dir.existsSync()
+        ? dir.listSync().whereType<File>().firstOrNull
+        : null;
+    if (existing != null) return existing;
+    await dir.create(recursive: true);
+    return _ytdlp!.download(
+      videoUrl,
+      format: DownloadFormat.m4a,
+      directory: dir.path,
+    );
   }
 
   /// Downloads [c] into the library and returns the new track's id.
@@ -120,7 +214,11 @@ class DownloadService {
       void progress(double v) => onProgress?.call(DownloadStage.downloading, v);
       onProgress?.call(DownloadStage.downloading, 0);
       final File audio;
-      if (_ytdlp != null) {
+      final cached = await _reusablePreview(audioUrl, format, work);
+      if (cached != null) {
+        audio = cached;
+        progress(1);
+      } else if (_ytdlp != null) {
         audio = await _ytdlp.download(
           audioUrl,
           format: format,
@@ -174,6 +272,30 @@ class DownloadService {
       if (match != null) return match;
     }
     throw const DownloadException(DownloadFailure.noMatch);
+  }
+
+  /// A preview already fetched for this video, copied into [work] — so
+  /// "listen, then download" does not fetch the file twice.
+  Future<File?> _reusablePreview(
+    String audioUrl,
+    DownloadFormat format,
+    Directory work,
+  ) async {
+    final id = Uri.parse(audioUrl).queryParameters['v'];
+    if (_previewCache == null || id == null || format != DownloadFormat.m4a) {
+      return null;
+    }
+    final dir = Directory(p.join(_previewCache, id));
+    final file = dir.existsSync()
+        ? dir.listSync().whereType<File>().firstOrNull
+        : null;
+    return file?.copy(p.join(work.path, p.basename(file.path)));
+  }
+
+  /// Deletes cached previews (called at startup).
+  static Future<void> clearPreviewCache(String directory) async {
+    final dir = Directory(directory);
+    if (dir.existsSync()) await dir.delete(recursive: true);
   }
 
   /// `<downloads>/<Artist> - <Title>.<ext>`, made unique.

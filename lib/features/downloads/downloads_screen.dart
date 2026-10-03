@@ -10,6 +10,7 @@ import '../../shared/widgets/glass_panel.dart';
 import '../../shared/widgets/section_header.dart';
 import 'widgets/job_tile.dart';
 import 'widgets/link_panel.dart';
+import 'widgets/search_panel.dart';
 
 /// The two download flows are kept separate on purpose (see docs/ROADMAP.md).
 enum DownloadMode { byLink, byName }
@@ -66,10 +67,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
                   ],
                   const LinkPanel(),
                 ] else
-                  Text(
-                    l10n.downloadsByNameSoon,
-                    style: const TextStyle(color: AppColors.textSecondary),
-                  ),
+                  const SearchPanel(),
               ],
             ),
           ),

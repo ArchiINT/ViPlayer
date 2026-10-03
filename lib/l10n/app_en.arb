@@ -230,7 +230,6 @@
   "failNetwork": "Network problem. Check the connection and try again.",
   "failToolMissing": "yt-dlp is not installed. Install it in Settings → Downloads.",
   "failFailed": "Download failed",
-  "downloadsByNameSoon": "Search by name arrives in the next update.",
   "settingsDownloads": "Downloads",
   "settingsFormat": "Format",
   "formatM4a": "AAC (.m4a) — recommended",
@@ -256,5 +255,27 @@
     }
   },
   "ytdlpUpdateFailed": "Could not update yt-dlp",
-  "phoneDownloadsNote": "On the phone only SoundCloud downloads work. Download YouTube and Spotify on the PC."
+  "phoneDownloadsNote": "On the phone only SoundCloud downloads work. Download YouTube and Spotify on the PC.",
+  "searchByNameHint": "Song title, artist…",
+  "sourceAll": "All",
+  "listen": "Listen",
+  "stopListening": "Pause",
+  "downloadSelected": "Download selected ({count})",
+  "@downloadSelected": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "serviceUnavailable": "{service} is unavailable right now",
+  "@serviceUnavailable": {
+    "placeholders": {
+      "service": {
+        "type": "String"
+      }
+    }
+  },
+  "searchByNameEmpty": "Search YouTube and SoundCloud, listen to the results and pick what to download.",
+  "searchByNameEmptyPhone": "Search SoundCloud, listen to the results and pick what to download."
 }

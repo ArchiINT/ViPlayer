@@ -51,12 +51,23 @@ class SoundCloudSource {
     }
   }
 
-  /// Downloads track [id] as MP3 (SoundCloud's progressive stream).
-  Future<void> downloadAudio(
-    String id,
-    File target, {
-    void Function(double progress)? onProgress,
-  }) async {
+  /// Tracks matching [query]. Previews-only uploads (SoundCloud Go+ "snips")
+  /// and blocked ones are left out: they cannot be downloaded in full.
+  Future<List<DownloadCandidate>> search(String query, {int limit = 20}) async {
+    final data = await _apiObject('/search/tracks', {
+      'q': query,
+      'limit': '$limit',
+    });
+    return [
+      for (final t
+          in (data['collection'] as List<Object?>? ?? const [])
+              .cast<Map<String, Object?>>())
+        if (t['policy'] != 'SNIP' && t['policy'] != 'BLOCK') _candidate(t),
+    ];
+  }
+
+  /// Direct MP3 stream of track [id] (previews and downloads).
+  Future<PreviewStream> stream(String id) async {
     final track = await _apiObject('/tracks/$id', const {});
     final transcodings =
         ((track['media'] as Map<String, Object?>?)?['transcodings']
@@ -79,13 +90,20 @@ class SoundCloudSource {
             .replace(queryParameters: {'client_id': await _getClientId()}),
       ),
     ) as Map<String, Object?>;
-    await downloadWhole(
-      _http,
-      Uri.parse(streamInfo['url']! as String),
-      target,
-      onProgress: onProgress,
-    );
+    return PreviewStream(streamInfo['url']! as String);
   }
+
+  /// Downloads track [id] as MP3 (SoundCloud's progressive stream).
+  Future<void> downloadAudio(
+    String id,
+    File target, {
+    void Function(double progress)? onProgress,
+  }) async => downloadWhole(
+    _http,
+    Uri.parse((await stream(id)).url),
+    target,
+    onProgress: onProgress,
+  );
 
   // Short links (on.soundcloud.com/xyz) redirect to the real URL.
   Future<String> _expand(String url) async {

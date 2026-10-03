@@ -38,6 +38,7 @@ void main() {
       downloadDir: p.join(temp.path, 'music'),
     );
     service = DownloadService(
+      previewCacheDirectory: p.join(temp.path, 'previews'),
       client: client,
       downloadDirectory: p.join(temp.path, 'music'),
       library: library,
@@ -143,5 +144,32 @@ void main() {
         ),
       ),
     );
+  }, timeout: timeout);
+
+  test('search by name + preview streams play in full', () async {
+    final results = await service.search('Alan Walker Fade');
+    final yt = results[MusicService.youtube]!;
+    final sc = results[MusicService.soundcloud]!;
+    expect(yt.failure, isNull);
+    expect(sc.failure, isNull);
+    expect(yt.items, isNotEmpty);
+    expect(sc.items, isNotEmpty);
+
+    // YouTube: fetched into the preview cache, played from the file.
+    final ytPreview = await service.preview(yt.items.first);
+    expect(File(ytPreview.url).lengthSync(), greaterThan(1000000));
+
+    // ...and "download" after listening reuses it.
+    final sw = Stopwatch()..start();
+    await service.download(yt.items.first, format: DownloadFormat.m4a);
+    expect(sw.elapsed, lessThan(const Duration(seconds: 5)));
+
+    // SoundCloud: direct stream, past the first megabyte.
+    final scPreview = await service.preview(sc.items.first);
+    final r = await client.get(
+      Uri.parse(scPreview.url),
+      headers: {'Range': 'bytes=1500000-1600000'},
+    );
+    expect(r.statusCode, anyOf(200, 206));
   }, timeout: timeout);
 }

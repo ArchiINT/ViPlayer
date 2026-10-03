@@ -133,7 +133,6 @@
   "failNetwork": "Проблема с сетью. Проверьте подключение и повторите.",
   "failToolMissing": "yt-dlp не установлен. Установите его в Настройки → Загрузки.",
   "failFailed": "Не удалось скачать",
-  "downloadsByNameSoon": "Поиск по названию появится в следующем обновлении.",
   "settingsDownloads": "Загрузки",
   "settingsFormat": "Формат",
   "formatM4a": "AAC (.m4a) — рекомендуется",
@@ -145,5 +144,13 @@
   "ytdlpUpdate": "Обновить",
   "ytdlpUpdated": "yt-dlp обновлён до {version}",
   "ytdlpUpdateFailed": "Не удалось обновить yt-dlp",
-  "phoneDownloadsNote": "На телефоне скачивание работает только для SoundCloud. YouTube и Spotify скачивайте на ПК."
+  "phoneDownloadsNote": "На телефоне скачивание работает только для SoundCloud. YouTube и Spotify скачивайте на ПК.",
+  "searchByNameHint": "Название песни, исполнитель…",
+  "sourceAll": "Все",
+  "listen": "Прослушать",
+  "stopListening": "Пауза",
+  "downloadSelected": "Скачать выбранные ({count})",
+  "serviceUnavailable": "{service} сейчас недоступен",
+  "searchByNameEmpty": "Ищите на YouTube и SoundCloud, слушайте результаты и выбирайте, что скачать.",
+  "searchByNameEmptyPhone": "Ищите на SoundCloud, слушайте результаты и выбирайте, что скачать."
 }

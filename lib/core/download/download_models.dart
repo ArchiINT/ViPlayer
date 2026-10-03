@@ -99,6 +99,17 @@ class ResolvedLink {
   bool get isCollection => collectionTitle != null;
 }
 
+/// Where to stream a candidate from for a preview (no download).
+@immutable
+class PreviewStream {
+  const PreviewStream(this.url, {this.headers = const {}});
+
+  final String url;
+
+  /// Some streams only answer with the headers they were resolved with.
+  final Map<String, String> headers;
+}
+
 /// A link the user cannot download from, with a reason the UI can show.
 class DownloadException implements Exception {
   const DownloadException(this.reason, [this.detail]);

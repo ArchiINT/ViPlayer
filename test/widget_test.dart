@@ -34,6 +34,21 @@ class _FakeDownloads extends DownloadService {
   );
 
   @override
+  List<MusicService> get searchableServices => const [MusicService.soundcloud];
+
+  @override
+  Future<Map<MusicService, SearchOutcome>> search(
+    String query, {
+    List<MusicService>? services,
+  }) async => {
+    MusicService.soundcloud: const SearchOutcome([track]),
+  };
+
+  @override
+  Future<PreviewStream> preview(DownloadCandidate c) async =>
+      const PreviewStream('https://stream/1.mp3');
+
+  @override
   Future<ResolvedLink> resolve(String text) async =>
       const ResolvedLink(service: MusicService.soundcloud, items: [track]);
 
@@ -236,6 +251,45 @@ void main() {
 
     expect(find.text('angelrot — Backtoback'), findsOneWidget);
     expect(find.text('In your library'), findsOneWidget);
+
+    await app.dispose(tester);
+  });
+
+  testWidgets('download by name: listen to a result, then pick it', (
+    tester,
+  ) async {
+    final app = await TestApp.create();
+    app.extraOverrides = [
+      downloadServiceProvider.overrideWith(
+        (ref) => _FakeDownloads(
+          LibraryRepository(app.db, const CoverStore('/covers')),
+        ),
+      ),
+    ];
+    await app.pump(tester);
+
+    await tester.tap(find.byIcon(Icons.download_outlined).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('By name'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'backtoback');
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await tester.pumpAndSettle();
+    expect(find.text('Backtoback'), findsOneWidget);
+
+    // Listen first.
+    await tester.tap(find.byTooltip('Listen'));
+    await tester.pumpAndSettle();
+    expect(app.previewBackend.opened, ['https://stream/1.mp3']);
+    expect(find.byTooltip('Pause'), findsOneWidget);
+
+    // Then pick and download.
+    await tester.tap(find.byType(Checkbox));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Download selected (1)'));
+    await tester.pumpAndSettle();
+    expect(find.text('In your library'), findsOneWidget);
+    expect(app.preview.state.value.key, isNull, reason: 'preview stopped');
 
     await app.dispose(tester);
   });
