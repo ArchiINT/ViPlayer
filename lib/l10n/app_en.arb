@@ -12,7 +12,7 @@
   "searchEmptyBody": "Search tracks, artists and albums in your library.",
   "playlistsLiked": "Liked",
   "playlistsEmptyTitle": "No playlists yet",
-  "playlistsEmptyBody": "Create playlists to organize your music. They sync between your devices.",
+  "playlistsEmptyBody": "Create a playlist, then add tracks from their menu. Playlists sync between your devices.",
   "downloadsByLink": "By link",
   "downloadsByName": "By name",
   "downloadsEmptyTitle": "Nothing downloaded yet",
@@ -153,5 +153,51 @@
   "addedToQueue": "Added to queue",
   "willPlayNext": "Will play next",
   "queueEmpty": "The queue is empty",
-  "close": "Close"
+  "close": "Close",
+  "recentlyPlayed": "Recently played",
+  "newPlaylist": "New playlist",
+  "playlistName": "Name",
+  "create": "Create",
+  "rename": "Rename",
+  "save": "Save",
+  "delete": "Delete",
+  "deletePlaylist": "Delete playlist",
+  "deletePlaylistConfirm": "Delete “{name}”? The tracks stay in your library.",
+  "@deletePlaylistConfirm": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "availableOffline": "Available offline",
+  "availableOfflineSubtitle": "Copy its tracks to the phone when syncing",
+  "addToPlaylist": "Add to playlist",
+  "addedToPlaylist": "Added to “{name}”",
+  "@addedToPlaylist": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "alreadyInPlaylist": "Already in “{name}”",
+  "@alreadyInPlaylist": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "removeFromPlaylist": "Remove from playlist",
+  "like": "Like",
+  "unlike": "Remove from Liked",
+  "likedEmptyTitle": "No liked tracks yet",
+  "likedEmptyBody": "Tap the heart in the player or in a track's menu.",
+  "recentEmptyTitle": "Nothing played yet",
+  "recentEmptyBody": "Tracks you listen to show up here.",
+  "clearHistory": "Clear history",
+  "clearHistoryConfirm": "Clear the listening history on all your devices?",
+  "playlistEmptyTitle": "This playlist is empty",
+  "playlistEmptyBody": "Add tracks from the library: long press or right-click a track → Add to playlist."
 }

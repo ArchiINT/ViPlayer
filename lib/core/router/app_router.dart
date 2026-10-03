@@ -8,7 +8,10 @@ import '../../features/library/artist_screen.dart';
 import '../../features/library/library_screen.dart';
 import '../../features/player/mini_player.dart';
 import '../../features/player/now_playing_screen.dart';
+import '../../features/playlists/liked_screen.dart';
+import '../../features/playlists/playlist_screen.dart';
 import '../../features/playlists/playlists_screen.dart';
+import '../../features/playlists/recent_screen.dart';
 import '../../features/search/search_screen.dart';
 import '../../features/settings/folders_screen.dart';
 import '../../features/settings/settings_screen.dart';
@@ -23,6 +26,10 @@ abstract final class AppRoutes {
   static const downloads = '/downloads';
   static const settings = '/settings';
   static const folders = '/settings/folders';
+
+  static const liked = '/playlists/liked';
+  static const recent = '/playlists/recent';
+  static String playlist(String id) => '/playlists/p/$id';
 
   /// Full-screen player, above the tabs.
   static const player = '/player';
@@ -80,7 +87,26 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             const SearchScreen(),
             routes: _detailRoutes(),
           ),
-          _branch(AppRoutes.playlists, const PlaylistsScreen()),
+          _branch(
+            AppRoutes.playlists,
+            const PlaylistsScreen(),
+            routes: [
+              GoRoute(
+                path: 'liked',
+                builder: (context, state) => const LikedScreen(),
+              ),
+              GoRoute(
+                path: 'recent',
+                builder: (context, state) => const RecentScreen(),
+              ),
+              GoRoute(
+                path: 'p/:id',
+                builder: (context, state) =>
+                    PlaylistScreen(playlistId: state.pathParameters['id']!),
+              ),
+              ..._detailRoutes(),
+            ],
+          ),
           _branch(AppRoutes.downloads, const DownloadsScreen()),
           _branch(
             AppRoutes.settings,

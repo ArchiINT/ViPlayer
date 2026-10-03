@@ -8,6 +8,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/cover_art.dart';
 import '../../shared/widgets/glass_panel.dart';
+import '../../shared/widgets/like_button.dart';
 import '../../shared/widgets/player_controls.dart';
 
 /// Compact player docked above the navigation (phone) or at the bottom of
@@ -78,7 +79,10 @@ class MiniPlayer extends ConsumerWidget {
                                       ),
                                     ),
                                   ),
-                                  if (wide) const SkipButton.previous(size: 26),
+                                  if (wide) ...[
+                                    LikeButton(track: track, size: 22),
+                                    const SkipButton.previous(size: 26),
+                                  ],
                                   const PlayPauseButton(size: 30),
                                   const SkipButton.next(size: 26),
                                   if (wide) ...[

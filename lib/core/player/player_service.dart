@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -83,6 +84,7 @@ class PlayerService {
   /// "Previous" restarts the current track if it has played longer than this.
   static const restartThreshold = Duration(seconds: 3);
 
+  static final _random = math.Random();
   static const _sessionKey = 'player.session';
   static const _saveInterval = Duration(seconds: 5);
   static const _maxSavedQueue = 2000;
@@ -114,6 +116,13 @@ class PlayerService {
     if (shuffled) await _backend.setShuffle(false);
     await _backend.open([for (final t in tracks) t.path], index: startIndex);
     if (shuffled) await _backend.setShuffle(true);
+  }
+
+  /// Plays [tracks] in random order (turns shuffle on).
+  Future<void> shufflePlay(List<LibraryTrack> tracks) async {
+    if (tracks.isEmpty) return;
+    if (!_state.shuffle) await _backend.setShuffle(true);
+    await playQueue(tracks, startIndex: _random.nextInt(tracks.length));
   }
 
   Future<void> playOrPause() => _backend.playOrPause();

@@ -1,7 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../library/collections_providers.dart';
 import '../library/library_models.dart';
 import '../library/library_providers.dart';
+import '../platform/device_id.dart';
+import 'play_history_tracker.dart';
 import 'player_service.dart';
 
 /// Created in main() (it must exist before the system media controls start)
@@ -40,10 +43,23 @@ final playerPositionProvider = StreamProvider<Duration>(
 /// Wires the player to the rest of the app. Watched once by the app shell:
 ///  * restores the last session as soon as the library is loaded;
 ///  * keeps queued tracks fresh when the library changes (likes, tags);
-///  * stores the real track length when tags were wrong.
+///  * stores the real track length when tags were wrong;
+///  * records listening history.
 final playerBootstrapProvider = Provider<void>((ref) {
   final player = ref.watch(playerServiceProvider);
   final repository = ref.watch(libraryRepositoryProvider);
+  final collections = ref.watch(collectionsRepositoryProvider);
+  final deviceId = ref.watch(deviceIdProvider);
+
+  final history = PlayHistoryTracker(
+    player,
+    (track, listened) => collections.recordPlay(
+      trackId: track.id,
+      listenedMs: listened.inMilliseconds,
+      deviceId: deviceId,
+    ),
+  );
+  ref.onDispose(history.dispose);
 
   player.onDurationMeasured = (track, actual) =>
       repository.updateDuration(track.id, actual.inMilliseconds);

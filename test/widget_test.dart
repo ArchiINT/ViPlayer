@@ -124,4 +124,41 @@ void main() {
 
     await app.dispose(tester);
   });
+
+  testWidgets('create a playlist, like a track from its menu', (tester) async {
+    final app = await TestApp.create();
+    await app.addTrack(id: 'a', title: 'Neon Rain', artist: 'Synth Rider');
+    await app.pump(tester);
+
+    // Like via the track menu (long press).
+    await tester.longPress(find.text('Neon Rain'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Like'));
+    await tester.pumpAndSettle();
+    final row = await tester.runAsync(
+      () => app.db.select(app.db.tracks).getSingle(),
+    );
+    expect(row!.liked, isTrue);
+
+    // New playlist from the Playlists tab.
+    await tester.tap(find.byIcon(Icons.queue_music_outlined));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('New playlist'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'Road trip');
+    await tester.tap(find.text('Create'));
+    await tester.pumpAndSettle();
+    expect(find.text('Road trip'), findsOneWidget); // its page
+    expect(find.text('This playlist is empty'), findsOneWidget);
+
+    // Back to the list: Liked shows 1 track, playlist is listed.
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.text('Road trip'), findsOneWidget);
+    await tester.tap(find.text('Liked'));
+    await tester.pumpAndSettle();
+    expect(find.text('Neon Rain'), findsOneWidget);
+
+    await app.dispose(tester);
+  });
 }

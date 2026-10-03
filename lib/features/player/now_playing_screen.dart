@@ -10,6 +10,7 @@ import '../../core/theme/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/widgets/ambient_background.dart';
 import '../../shared/widgets/cover_art.dart';
+import '../../shared/widgets/like_button.dart';
 import '../../shared/widgets/player_controls.dart';
 import 'queue_view.dart';
 
@@ -58,6 +59,7 @@ class NowPlayingScreen extends ConsumerWidget {
               ),
               centerTitle: true,
               actions: [
+                LikeButton(track: track, size: 26),
                 if (!wide)
                   IconButton(
                     tooltip: l10n.queue,

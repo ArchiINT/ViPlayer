@@ -14,6 +14,7 @@ class LibraryTrack {
     required this.liked,
     required this.addedAt,
     required this.path,
+    this.likedAt,
     this.albumArtist,
     this.trackNumber,
     this.discNumber,
@@ -33,6 +34,9 @@ class LibraryTrack {
   final int? year;
   final String? genre;
   final bool liked;
+
+  /// When it was liked (ms since epoch) — orders the Liked list.
+  final int? likedAt;
   final int addedAt;
 
   /// Local audio file.

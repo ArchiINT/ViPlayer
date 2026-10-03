@@ -23,6 +23,8 @@ class TrackTile extends ConsumerWidget {
     this.onTap,
     this.leadingNumber,
     this.showAlbum = true,
+    this.trailing,
+    this.onRemoveFromPlaylist,
   });
 
   static const extent = 68.0;
@@ -34,6 +36,12 @@ class TrackTile extends ConsumerWidget {
   /// Shows the track number instead of the cover (album screens).
   final int? leadingNumber;
   final bool showAlbum;
+
+  /// Extra widget at the end of the row (e.g. a drag handle).
+  final Widget? trailing;
+
+  /// Set inside a playlist: adds "Remove from playlist" to the menu.
+  final VoidCallback? onRemoveFromPlaylist;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -58,8 +66,12 @@ class TrackTile extends ConsumerWidget {
         child: InkWell(
           onTap: onTap,
           onLongPress: () => _openMenu(context),
-          onSecondaryTapUp: (d) =>
-              showTrackMenu(context, track, d.globalPosition),
+          onSecondaryTapUp: (d) => showTrackMenu(
+            context,
+            track,
+            d.globalPosition,
+            onRemoveFromPlaylist: onRemoveFromPlaylist,
+          ),
           borderRadius: radius,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -130,6 +142,7 @@ class TrackTile extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(width: 4),
+                ?trailing,
               ],
             ),
           ),
@@ -144,6 +157,7 @@ class TrackTile extends ConsumerWidget {
       context,
       track,
       box.localToGlobal(box.size.centerRight(Offset.zero)),
+      onRemoveFromPlaylist: onRemoveFromPlaylist,
     );
   }
 }

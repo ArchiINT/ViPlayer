@@ -4,57 +4,28 @@ import 'package:path/path.dart' as p;
 import '../database/app_database.dart';
 import 'cover_store.dart';
 import 'library_models.dart';
+import 'track_queries.dart';
 
 /// Read/write access to the local music library.
 class LibraryRepository {
-  LibraryRepository(this._db, this._covers);
+  LibraryRepository(this._db, CoverStore covers)
+    : _mapper = TrackRowMapper(_db, covers);
 
   final AppDatabase _db;
-  final CoverStore _covers;
+  final TrackRowMapper _mapper;
 
   /// All tracks that have a file on this device. Re-emits on every change.
-  ///
-  /// A track with several local copies is listed once (lowest file id); its
-  /// cover comes from whichever copy has one.
+  /// A track with several local copies is listed once.
   Stream<List<LibraryTrack>> watchTracks() {
     return _db
         .customSelect(
-          '''
-          SELECT t.*,
-            f.path AS file_path,
-            (SELECT cover_id FROM track_files
-               WHERE track_id = t.id AND cover_id IS NOT NULL
-               LIMIT 1) AS file_cover
-          FROM tracks t
-          JOIN track_files f
-            ON f.id = (SELECT MIN(id) FROM track_files WHERE track_id = t.id)
-          WHERE t.deleted = 0
-          ''',
+          'SELECT t.*, ${TrackQueries.fileColumns} '
+          'FROM tracks t ${TrackQueries.fileJoin} '
+          'WHERE t.deleted = 0',
           readsFrom: {_db.tracks, _db.trackFiles},
         )
         .watch()
-        .map((rows) => rows.map(_toLibraryTrack).toList(growable: false));
-  }
-
-  LibraryTrack _toLibraryTrack(QueryRow row) {
-    final t = _db.tracks.map(row.data);
-    final coverId = row.readNullable<String>('file_cover');
-    return LibraryTrack(
-      id: t.id,
-      title: t.title,
-      artist: t.artist,
-      album: t.album,
-      albumArtist: t.albumArtist,
-      durationMs: t.durationMs,
-      trackNumber: t.trackNumber,
-      discNumber: t.discNumber,
-      year: t.year,
-      genre: t.genre,
-      liked: t.liked,
-      addedAt: t.addedAt,
-      path: row.read<String>('file_path'),
-      coverPath: coverId == null ? null : _covers.pathFor(coverId),
-    );
+        .map((rows) => rows.map(_mapper.map).toList(growable: false));
   }
 
   /// Stores the real length measured by the player.

@@ -5,6 +5,7 @@ import '../../core/library/library_models.dart';
 import '../../core/player/player_providers.dart';
 import '../../core/router/app_router.dart';
 import '../../l10n/generated/app_localizations.dart';
+import 'collection_actions.dart';
 
 /// Plays [track]; with [queue], the queue becomes that list (album, search
 /// results, …) starting at [track]. Every track list calls this.
@@ -20,15 +21,26 @@ void playTrack(
       .playQueue(list, startIndex: start < 0 ? 0 : start);
 }
 
-enum _TrackAction { playNext, addToQueue, album, artist }
+enum _TrackAction {
+  playNext,
+  addToQueue,
+  like,
+  addToPlaylist,
+  removeFromPlaylist,
+  album,
+  artist,
+}
 
-/// Context menu for a track (long press / right click): queue actions and
-/// navigation. [position] is where the menu opens (global coordinates).
+/// Context menu for a track (long press / right click): queue, likes,
+/// playlists, navigation. [position] is where the menu opens (global
+/// coordinates). [onRemoveFromPlaylist] adds "Remove from playlist" (when
+/// the track is shown inside a playlist).
 Future<void> showTrackMenu(
   BuildContext context,
   LibraryTrack track,
-  Offset position,
-) async {
+  Offset position, {
+  VoidCallback? onRemoveFromPlaylist,
+}) async {
   final l10n = AppLocalizations.of(context);
   final player = ProviderScope.containerOf(
     context,
@@ -58,6 +70,34 @@ Future<void> showTrackMenu(
           title: Text(l10n.addToQueue),
         ),
       ),
+      const PopupMenuDivider(),
+      PopupMenuItem(
+        value: _TrackAction.like,
+        child: ListTile(
+          leading: Icon(
+            track.liked
+                ? Icons.favorite_rounded
+                : Icons.favorite_border_rounded,
+          ),
+          title: Text(track.liked ? l10n.unlike : l10n.like),
+        ),
+      ),
+      PopupMenuItem(
+        value: _TrackAction.addToPlaylist,
+        child: ListTile(
+          leading: const Icon(Icons.library_add_rounded),
+          title: Text(l10n.addToPlaylist),
+        ),
+      ),
+      if (onRemoveFromPlaylist != null)
+        PopupMenuItem(
+          value: _TrackAction.removeFromPlaylist,
+          child: ListTile(
+            leading: const Icon(Icons.playlist_remove_rounded),
+            title: Text(l10n.removeFromPlaylist),
+          ),
+        ),
+      const PopupMenuDivider(),
       if (track.album.isNotEmpty)
         PopupMenuItem(
           value: _TrackAction.album,
@@ -85,6 +125,12 @@ Future<void> showTrackMenu(
     case _TrackAction.addToQueue:
       await player.addToQueue(track);
       messenger.showSnackBar(SnackBar(content: Text(l10n.addedToQueue)));
+    case _TrackAction.like:
+      await toggleLike(context, track);
+    case _TrackAction.addToPlaylist:
+      await showAddToPlaylistSheet(context, [track]);
+    case _TrackAction.removeFromPlaylist:
+      onRemoveFromPlaylist!();
     case _TrackAction.album:
       openAlbum(context, track.albumKey);
     case _TrackAction.artist:
