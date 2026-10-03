@@ -277,5 +277,97 @@
     }
   },
   "searchByNameEmpty": "Search YouTube and SoundCloud, listen to the results and pick what to download.",
-  "searchByNameEmptyPhone": "Search SoundCloud, listen to the results and pick what to download."
+  "searchByNameEmptyPhone": "Search SoundCloud, listen to the results and pick what to download.",
+  "settingsSync": "Sync",
+  "syncTitle": "Sync",
+  "syncThisDevice": "This device",
+  "syncVisibleAs": "Visible on the network as “{name}”",
+  "@syncVisibleAs": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "syncRename": "Device name",
+  "syncPaired": "Paired devices",
+  "syncNearby": "Devices nearby",
+  "syncNoPaired": "No paired devices yet. Open ViPlayer on your other device in the same Wi-Fi network and pair it below.",
+  "syncNoNearby": "Looking for devices… Make sure ViPlayer is open on the other device and both are on the same Wi-Fi.",
+  "syncPair": "Pair",
+  "syncNow": "Sync now",
+  "syncUnpair": "Unpair",
+  "syncOnline": "Online",
+  "syncOffline": "Not on the network",
+  "syncLast": "Last sync {time}",
+  "@syncLast": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "syncNever": "Not synced yet",
+  "syncInProgress": "Syncing…",
+  "syncFiles": "Copying files {done} / {total}",
+  "@syncFiles": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "syncFailed": "Sync failed: {error}",
+  "@syncFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "syncEnterCode": "Enter the code shown on “{name}”",
+  "@syncEnterCode": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "syncCodeTitle": "Pairing request",
+  "syncCodeBody": "“{name}” wants to pair with this device. Enter this code on it:",
+  "@syncCodeBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "syncPairedWith": "Paired with “{name}”",
+  "@syncPairedWith": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "syncWrongCode": "Wrong code. Try again.",
+  "syncConnectByIp": "Connect by address",
+  "syncConnectHint": "IP and port, e.g. 192.168.1.20:41234",
+  "syncConnectFailed": "Could not reach that device",
+  "syncThisAddress": "This device: {address}",
+  "@syncThisAddress": {
+    "placeholders": {
+      "address": {
+        "type": "String"
+      }
+    }
+  },
+  "syncCopyAll": "Copy all new music to this phone",
+  "syncCopyAllSubtitle": "Otherwise only Liked tracks and offline playlists are copied.",
+  "syncSecurityNote": "Devices sync directly over your Wi-Fi, no server. Traffic is not encrypted — pair only on networks you trust.",
+  "syncNotRunning": "Sync is not running on this device (network unavailable).",
+  "connect": "Connect"
 }

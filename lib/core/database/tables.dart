@@ -22,6 +22,11 @@ mixin SyncColumns on Table {
   /// Tombstone: row was deleted, kept so the deletion can sync.
   BoolColumn get deleted => boolean().withDefault(const Constant(false))();
 
+  /// LOCAL change counter (never synced): set by SQLite triggers on every
+  /// insert/update, from a database-wide sequence. "Changes since N" is how
+  /// sync finds what to send. Added in schema v3.
+  IntColumn get localRev => integer().withDefault(const Constant(0))();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -117,4 +122,26 @@ class TrackFiles extends Table {
     #id,
     onDelete: KeyAction.cascade,
   )();
+}
+
+/// LOCAL: key/value counters used by sync (the `rev` sequence).
+@DataClassName('SyncStateRow')
+class SyncState extends Table {
+  TextColumn get key => text()();
+  IntColumn get value => integer()();
+
+  @override
+  Set<Column> get primaryKey => {key};
+}
+
+/// LOCAL: track ids that were merged into another track during sync (the
+/// same song found independently on two devices). Rows that still refer to
+/// [aliasId] are redirected to [trackId]. See docs/SYNC.md.
+@DataClassName('TrackAliasRow')
+class TrackAliases extends Table {
+  TextColumn get aliasId => text()();
+  TextColumn get trackId => text()();
+
+  @override
+  Set<Column> get primaryKey => {aliasId};
 }

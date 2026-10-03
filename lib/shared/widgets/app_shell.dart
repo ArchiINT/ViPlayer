@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/library/library_providers.dart';
 import '../../core/player/player_providers.dart';
+import '../../core/sync/sync_providers.dart';
 import '../../l10n/generated/app_localizations.dart';
 import 'ambient_background.dart';
 import 'app_logo.dart';
@@ -74,6 +75,7 @@ class _AppShellState extends ConsumerState<AppShell> {
   Widget build(BuildContext context) {
     // Session restore, library <-> queue sync (see playerBootstrapProvider).
     ref.watch(playerBootstrapProvider);
+    ref.watch(syncBootstrapProvider);
     final l10n = AppLocalizations.of(context);
     final destinations = [
       (

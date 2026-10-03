@@ -43,6 +43,18 @@ class $TracksTable extends Tracks with TableInfo<$TracksTable, TrackRow> {
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _localRevMeta = const VerificationMeta(
+    'localRev',
+  );
+  @override
+  late final GeneratedColumn<int> localRev = GeneratedColumn<int>(
+    'local_rev',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   static const VerificationMeta _fingerprintMeta = const VerificationMeta(
     'fingerprint',
   );
@@ -217,6 +229,7 @@ class $TracksTable extends Tracks with TableInfo<$TracksTable, TrackRow> {
     id,
     updatedAt,
     deleted,
+    localRev,
     fingerprint,
     title,
     artist,
@@ -263,6 +276,12 @@ class $TracksTable extends Tracks with TableInfo<$TracksTable, TrackRow> {
       context.handle(
         _deletedMeta,
         deleted.isAcceptableOrUnknown(data['deleted']!, _deletedMeta),
+      );
+    }
+    if (data.containsKey('local_rev')) {
+      context.handle(
+        _localRevMeta,
+        localRev.isAcceptableOrUnknown(data['local_rev']!, _localRevMeta),
       );
     }
     if (data.containsKey('fingerprint')) {
@@ -397,6 +416,10 @@ class $TracksTable extends Tracks with TableInfo<$TracksTable, TrackRow> {
         DriftSqlType.bool,
         data['${effectivePrefix}deleted'],
       )!,
+      localRev: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}local_rev'],
+      )!,
       fingerprint: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}fingerprint'],
@@ -480,6 +503,11 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
   /// Tombstone: row was deleted, kept so the deletion can sync.
   final bool deleted;
 
+  /// LOCAL change counter (never synced): set by SQLite triggers on every
+  /// insert/update, from a database-wide sequence. "Changes since N" is how
+  /// sync finds what to send. Added in schema v3.
+  final int localRev;
+
   /// Content identity used to recognise the same song on different devices,
   /// where file paths differ. See docs/SYNC.md.
   final String fingerprint;
@@ -504,6 +532,7 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
     required this.id,
     required this.updatedAt,
     required this.deleted,
+    required this.localRev,
     required this.fingerprint,
     required this.title,
     required this.artist,
@@ -527,6 +556,7 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
     map['id'] = Variable<String>(id);
     map['updated_at'] = Variable<int>(updatedAt);
     map['deleted'] = Variable<bool>(deleted);
+    map['local_rev'] = Variable<int>(localRev);
     map['fingerprint'] = Variable<String>(fingerprint);
     map['title'] = Variable<String>(title);
     map['artist'] = Variable<String>(artist);
@@ -567,6 +597,7 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
       id: Value(id),
       updatedAt: Value(updatedAt),
       deleted: Value(deleted),
+      localRev: Value(localRev),
       fingerprint: Value(fingerprint),
       title: Value(title),
       artist: Value(artist),
@@ -607,6 +638,7 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
       id: serializer.fromJson<String>(json['id']),
       updatedAt: serializer.fromJson<int>(json['updatedAt']),
       deleted: serializer.fromJson<bool>(json['deleted']),
+      localRev: serializer.fromJson<int>(json['localRev']),
       fingerprint: serializer.fromJson<String>(json['fingerprint']),
       title: serializer.fromJson<String>(json['title']),
       artist: serializer.fromJson<String>(json['artist']),
@@ -632,6 +664,7 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
       'id': serializer.toJson<String>(id),
       'updatedAt': serializer.toJson<int>(updatedAt),
       'deleted': serializer.toJson<bool>(deleted),
+      'localRev': serializer.toJson<int>(localRev),
       'fingerprint': serializer.toJson<String>(fingerprint),
       'title': serializer.toJson<String>(title),
       'artist': serializer.toJson<String>(artist),
@@ -655,6 +688,7 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
     String? id,
     int? updatedAt,
     bool? deleted,
+    int? localRev,
     String? fingerprint,
     String? title,
     String? artist,
@@ -675,6 +709,7 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
     id: id ?? this.id,
     updatedAt: updatedAt ?? this.updatedAt,
     deleted: deleted ?? this.deleted,
+    localRev: localRev ?? this.localRev,
     fingerprint: fingerprint ?? this.fingerprint,
     title: title ?? this.title,
     artist: artist ?? this.artist,
@@ -697,6 +732,7 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
       id: data.id.present ? data.id.value : this.id,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       deleted: data.deleted.present ? data.deleted.value : this.deleted,
+      localRev: data.localRev.present ? data.localRev.value : this.localRev,
       fingerprint: data.fingerprint.present
           ? data.fingerprint.value
           : this.fingerprint,
@@ -732,6 +768,7 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
           ..write('id: $id, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('deleted: $deleted, ')
+          ..write('localRev: $localRev, ')
           ..write('fingerprint: $fingerprint, ')
           ..write('title: $title, ')
           ..write('artist: $artist, ')
@@ -757,6 +794,7 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
     id,
     updatedAt,
     deleted,
+    localRev,
     fingerprint,
     title,
     artist,
@@ -781,6 +819,7 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
           other.id == this.id &&
           other.updatedAt == this.updatedAt &&
           other.deleted == this.deleted &&
+          other.localRev == this.localRev &&
           other.fingerprint == this.fingerprint &&
           other.title == this.title &&
           other.artist == this.artist &&
@@ -803,6 +842,7 @@ class TracksCompanion extends UpdateCompanion<TrackRow> {
   final Value<String> id;
   final Value<int> updatedAt;
   final Value<bool> deleted;
+  final Value<int> localRev;
   final Value<String> fingerprint;
   final Value<String> title;
   final Value<String> artist;
@@ -824,6 +864,7 @@ class TracksCompanion extends UpdateCompanion<TrackRow> {
     this.id = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.deleted = const Value.absent(),
+    this.localRev = const Value.absent(),
     this.fingerprint = const Value.absent(),
     this.title = const Value.absent(),
     this.artist = const Value.absent(),
@@ -846,6 +887,7 @@ class TracksCompanion extends UpdateCompanion<TrackRow> {
     required String id,
     required int updatedAt,
     this.deleted = const Value.absent(),
+    this.localRev = const Value.absent(),
     required String fingerprint,
     required String title,
     this.artist = const Value.absent(),
@@ -872,6 +914,7 @@ class TracksCompanion extends UpdateCompanion<TrackRow> {
     Expression<String>? id,
     Expression<int>? updatedAt,
     Expression<bool>? deleted,
+    Expression<int>? localRev,
     Expression<String>? fingerprint,
     Expression<String>? title,
     Expression<String>? artist,
@@ -894,6 +937,7 @@ class TracksCompanion extends UpdateCompanion<TrackRow> {
       if (id != null) 'id': id,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (deleted != null) 'deleted': deleted,
+      if (localRev != null) 'local_rev': localRev,
       if (fingerprint != null) 'fingerprint': fingerprint,
       if (title != null) 'title': title,
       if (artist != null) 'artist': artist,
@@ -918,6 +962,7 @@ class TracksCompanion extends UpdateCompanion<TrackRow> {
     Value<String>? id,
     Value<int>? updatedAt,
     Value<bool>? deleted,
+    Value<int>? localRev,
     Value<String>? fingerprint,
     Value<String>? title,
     Value<String>? artist,
@@ -940,6 +985,7 @@ class TracksCompanion extends UpdateCompanion<TrackRow> {
       id: id ?? this.id,
       updatedAt: updatedAt ?? this.updatedAt,
       deleted: deleted ?? this.deleted,
+      localRev: localRev ?? this.localRev,
       fingerprint: fingerprint ?? this.fingerprint,
       title: title ?? this.title,
       artist: artist ?? this.artist,
@@ -971,6 +1017,9 @@ class TracksCompanion extends UpdateCompanion<TrackRow> {
     }
     if (deleted.present) {
       map['deleted'] = Variable<bool>(deleted.value);
+    }
+    if (localRev.present) {
+      map['local_rev'] = Variable<int>(localRev.value);
     }
     if (fingerprint.present) {
       map['fingerprint'] = Variable<String>(fingerprint.value);
@@ -1032,6 +1081,7 @@ class TracksCompanion extends UpdateCompanion<TrackRow> {
           ..write('id: $id, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('deleted: $deleted, ')
+          ..write('localRev: $localRev, ')
           ..write('fingerprint: $fingerprint, ')
           ..write('title: $title, ')
           ..write('artist: $artist, ')
@@ -1095,6 +1145,18 @@ class $PlaylistsTable extends Playlists
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _localRevMeta = const VerificationMeta(
+    'localRev',
+  );
+  @override
+  late final GeneratedColumn<int> localRev = GeneratedColumn<int>(
+    'local_rev',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   static const VerificationMeta _nameMeta = const VerificationMeta('name');
   @override
   late final GeneratedColumn<String> name = GeneratedColumn<String>(
@@ -1146,6 +1208,7 @@ class $PlaylistsTable extends Playlists
     id,
     updatedAt,
     deleted,
+    localRev,
     name,
     description,
     isOffline,
@@ -1180,6 +1243,12 @@ class $PlaylistsTable extends Playlists
       context.handle(
         _deletedMeta,
         deleted.isAcceptableOrUnknown(data['deleted']!, _deletedMeta),
+      );
+    }
+    if (data.containsKey('local_rev')) {
+      context.handle(
+        _localRevMeta,
+        localRev.isAcceptableOrUnknown(data['local_rev']!, _localRevMeta),
       );
     }
     if (data.containsKey('name')) {
@@ -1234,6 +1303,10 @@ class $PlaylistsTable extends Playlists
         DriftSqlType.bool,
         data['${effectivePrefix}deleted'],
       )!,
+      localRev: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}local_rev'],
+      )!,
       name: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}name'],
@@ -1268,6 +1341,11 @@ class PlaylistRow extends DataClass implements Insertable<PlaylistRow> {
 
   /// Tombstone: row was deleted, kept so the deletion can sync.
   final bool deleted;
+
+  /// LOCAL change counter (never synced): set by SQLite triggers on every
+  /// insert/update, from a database-wide sequence. "Changes since N" is how
+  /// sync finds what to send. Added in schema v3.
+  final int localRev;
   final String name;
   final String? description;
 
@@ -1278,6 +1356,7 @@ class PlaylistRow extends DataClass implements Insertable<PlaylistRow> {
     required this.id,
     required this.updatedAt,
     required this.deleted,
+    required this.localRev,
     required this.name,
     this.description,
     required this.isOffline,
@@ -1289,6 +1368,7 @@ class PlaylistRow extends DataClass implements Insertable<PlaylistRow> {
     map['id'] = Variable<String>(id);
     map['updated_at'] = Variable<int>(updatedAt);
     map['deleted'] = Variable<bool>(deleted);
+    map['local_rev'] = Variable<int>(localRev);
     map['name'] = Variable<String>(name);
     if (!nullToAbsent || description != null) {
       map['description'] = Variable<String>(description);
@@ -1303,6 +1383,7 @@ class PlaylistRow extends DataClass implements Insertable<PlaylistRow> {
       id: Value(id),
       updatedAt: Value(updatedAt),
       deleted: Value(deleted),
+      localRev: Value(localRev),
       name: Value(name),
       description: description == null && nullToAbsent
           ? const Value.absent()
@@ -1321,6 +1402,7 @@ class PlaylistRow extends DataClass implements Insertable<PlaylistRow> {
       id: serializer.fromJson<String>(json['id']),
       updatedAt: serializer.fromJson<int>(json['updatedAt']),
       deleted: serializer.fromJson<bool>(json['deleted']),
+      localRev: serializer.fromJson<int>(json['localRev']),
       name: serializer.fromJson<String>(json['name']),
       description: serializer.fromJson<String?>(json['description']),
       isOffline: serializer.fromJson<bool>(json['isOffline']),
@@ -1334,6 +1416,7 @@ class PlaylistRow extends DataClass implements Insertable<PlaylistRow> {
       'id': serializer.toJson<String>(id),
       'updatedAt': serializer.toJson<int>(updatedAt),
       'deleted': serializer.toJson<bool>(deleted),
+      'localRev': serializer.toJson<int>(localRev),
       'name': serializer.toJson<String>(name),
       'description': serializer.toJson<String?>(description),
       'isOffline': serializer.toJson<bool>(isOffline),
@@ -1345,6 +1428,7 @@ class PlaylistRow extends DataClass implements Insertable<PlaylistRow> {
     String? id,
     int? updatedAt,
     bool? deleted,
+    int? localRev,
     String? name,
     Value<String?> description = const Value.absent(),
     bool? isOffline,
@@ -1353,6 +1437,7 @@ class PlaylistRow extends DataClass implements Insertable<PlaylistRow> {
     id: id ?? this.id,
     updatedAt: updatedAt ?? this.updatedAt,
     deleted: deleted ?? this.deleted,
+    localRev: localRev ?? this.localRev,
     name: name ?? this.name,
     description: description.present ? description.value : this.description,
     isOffline: isOffline ?? this.isOffline,
@@ -1363,6 +1448,7 @@ class PlaylistRow extends DataClass implements Insertable<PlaylistRow> {
       id: data.id.present ? data.id.value : this.id,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       deleted: data.deleted.present ? data.deleted.value : this.deleted,
+      localRev: data.localRev.present ? data.localRev.value : this.localRev,
       name: data.name.present ? data.name.value : this.name,
       description: data.description.present
           ? data.description.value
@@ -1378,6 +1464,7 @@ class PlaylistRow extends DataClass implements Insertable<PlaylistRow> {
           ..write('id: $id, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('deleted: $deleted, ')
+          ..write('localRev: $localRev, ')
           ..write('name: $name, ')
           ..write('description: $description, ')
           ..write('isOffline: $isOffline, ')
@@ -1391,6 +1478,7 @@ class PlaylistRow extends DataClass implements Insertable<PlaylistRow> {
     id,
     updatedAt,
     deleted,
+    localRev,
     name,
     description,
     isOffline,
@@ -1403,6 +1491,7 @@ class PlaylistRow extends DataClass implements Insertable<PlaylistRow> {
           other.id == this.id &&
           other.updatedAt == this.updatedAt &&
           other.deleted == this.deleted &&
+          other.localRev == this.localRev &&
           other.name == this.name &&
           other.description == this.description &&
           other.isOffline == this.isOffline &&
@@ -1413,6 +1502,7 @@ class PlaylistsCompanion extends UpdateCompanion<PlaylistRow> {
   final Value<String> id;
   final Value<int> updatedAt;
   final Value<bool> deleted;
+  final Value<int> localRev;
   final Value<String> name;
   final Value<String?> description;
   final Value<bool> isOffline;
@@ -1422,6 +1512,7 @@ class PlaylistsCompanion extends UpdateCompanion<PlaylistRow> {
     this.id = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.deleted = const Value.absent(),
+    this.localRev = const Value.absent(),
     this.name = const Value.absent(),
     this.description = const Value.absent(),
     this.isOffline = const Value.absent(),
@@ -1432,6 +1523,7 @@ class PlaylistsCompanion extends UpdateCompanion<PlaylistRow> {
     required String id,
     required int updatedAt,
     this.deleted = const Value.absent(),
+    this.localRev = const Value.absent(),
     required String name,
     this.description = const Value.absent(),
     this.isOffline = const Value.absent(),
@@ -1445,6 +1537,7 @@ class PlaylistsCompanion extends UpdateCompanion<PlaylistRow> {
     Expression<String>? id,
     Expression<int>? updatedAt,
     Expression<bool>? deleted,
+    Expression<int>? localRev,
     Expression<String>? name,
     Expression<String>? description,
     Expression<bool>? isOffline,
@@ -1455,6 +1548,7 @@ class PlaylistsCompanion extends UpdateCompanion<PlaylistRow> {
       if (id != null) 'id': id,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (deleted != null) 'deleted': deleted,
+      if (localRev != null) 'local_rev': localRev,
       if (name != null) 'name': name,
       if (description != null) 'description': description,
       if (isOffline != null) 'is_offline': isOffline,
@@ -1467,6 +1561,7 @@ class PlaylistsCompanion extends UpdateCompanion<PlaylistRow> {
     Value<String>? id,
     Value<int>? updatedAt,
     Value<bool>? deleted,
+    Value<int>? localRev,
     Value<String>? name,
     Value<String?>? description,
     Value<bool>? isOffline,
@@ -1477,6 +1572,7 @@ class PlaylistsCompanion extends UpdateCompanion<PlaylistRow> {
       id: id ?? this.id,
       updatedAt: updatedAt ?? this.updatedAt,
       deleted: deleted ?? this.deleted,
+      localRev: localRev ?? this.localRev,
       name: name ?? this.name,
       description: description ?? this.description,
       isOffline: isOffline ?? this.isOffline,
@@ -1496,6 +1592,9 @@ class PlaylistsCompanion extends UpdateCompanion<PlaylistRow> {
     }
     if (deleted.present) {
       map['deleted'] = Variable<bool>(deleted.value);
+    }
+    if (localRev.present) {
+      map['local_rev'] = Variable<int>(localRev.value);
     }
     if (name.present) {
       map['name'] = Variable<String>(name.value);
@@ -1521,6 +1620,7 @@ class PlaylistsCompanion extends UpdateCompanion<PlaylistRow> {
           ..write('id: $id, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('deleted: $deleted, ')
+          ..write('localRev: $localRev, ')
           ..write('name: $name, ')
           ..write('description: $description, ')
           ..write('isOffline: $isOffline, ')
@@ -1571,6 +1671,18 @@ class $PlaylistEntriesTable extends PlaylistEntries
       'CHECK ("deleted" IN (0, 1))',
     ),
     defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _localRevMeta = const VerificationMeta(
+    'localRev',
+  );
+  @override
+  late final GeneratedColumn<int> localRev = GeneratedColumn<int>(
+    'local_rev',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
   );
   static const VerificationMeta _playlistIdMeta = const VerificationMeta(
     'playlistId',
@@ -1627,6 +1739,7 @@ class $PlaylistEntriesTable extends PlaylistEntries
     id,
     updatedAt,
     deleted,
+    localRev,
     playlistId,
     trackId,
     position,
@@ -1661,6 +1774,12 @@ class $PlaylistEntriesTable extends PlaylistEntries
       context.handle(
         _deletedMeta,
         deleted.isAcceptableOrUnknown(data['deleted']!, _deletedMeta),
+      );
+    }
+    if (data.containsKey('local_rev')) {
+      context.handle(
+        _localRevMeta,
+        localRev.isAcceptableOrUnknown(data['local_rev']!, _localRevMeta),
       );
     }
     if (data.containsKey('playlist_id')) {
@@ -1716,6 +1835,10 @@ class $PlaylistEntriesTable extends PlaylistEntries
         DriftSqlType.bool,
         data['${effectivePrefix}deleted'],
       )!,
+      localRev: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}local_rev'],
+      )!,
       playlistId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}playlist_id'],
@@ -1751,6 +1874,11 @@ class PlaylistEntryRow extends DataClass
 
   /// Tombstone: row was deleted, kept so the deletion can sync.
   final bool deleted;
+
+  /// LOCAL change counter (never synced): set by SQLite triggers on every
+  /// insert/update, from a database-wide sequence. "Changes since N" is how
+  /// sync finds what to send. Added in schema v3.
+  final int localRev;
   final String playlistId;
   final String trackId;
 
@@ -1762,6 +1890,7 @@ class PlaylistEntryRow extends DataClass
     required this.id,
     required this.updatedAt,
     required this.deleted,
+    required this.localRev,
     required this.playlistId,
     required this.trackId,
     required this.position,
@@ -1773,6 +1902,7 @@ class PlaylistEntryRow extends DataClass
     map['id'] = Variable<String>(id);
     map['updated_at'] = Variable<int>(updatedAt);
     map['deleted'] = Variable<bool>(deleted);
+    map['local_rev'] = Variable<int>(localRev);
     map['playlist_id'] = Variable<String>(playlistId);
     map['track_id'] = Variable<String>(trackId);
     map['position'] = Variable<double>(position);
@@ -1785,6 +1915,7 @@ class PlaylistEntryRow extends DataClass
       id: Value(id),
       updatedAt: Value(updatedAt),
       deleted: Value(deleted),
+      localRev: Value(localRev),
       playlistId: Value(playlistId),
       trackId: Value(trackId),
       position: Value(position),
@@ -1801,6 +1932,7 @@ class PlaylistEntryRow extends DataClass
       id: serializer.fromJson<String>(json['id']),
       updatedAt: serializer.fromJson<int>(json['updatedAt']),
       deleted: serializer.fromJson<bool>(json['deleted']),
+      localRev: serializer.fromJson<int>(json['localRev']),
       playlistId: serializer.fromJson<String>(json['playlistId']),
       trackId: serializer.fromJson<String>(json['trackId']),
       position: serializer.fromJson<double>(json['position']),
@@ -1814,6 +1946,7 @@ class PlaylistEntryRow extends DataClass
       'id': serializer.toJson<String>(id),
       'updatedAt': serializer.toJson<int>(updatedAt),
       'deleted': serializer.toJson<bool>(deleted),
+      'localRev': serializer.toJson<int>(localRev),
       'playlistId': serializer.toJson<String>(playlistId),
       'trackId': serializer.toJson<String>(trackId),
       'position': serializer.toJson<double>(position),
@@ -1825,6 +1958,7 @@ class PlaylistEntryRow extends DataClass
     String? id,
     int? updatedAt,
     bool? deleted,
+    int? localRev,
     String? playlistId,
     String? trackId,
     double? position,
@@ -1833,6 +1967,7 @@ class PlaylistEntryRow extends DataClass
     id: id ?? this.id,
     updatedAt: updatedAt ?? this.updatedAt,
     deleted: deleted ?? this.deleted,
+    localRev: localRev ?? this.localRev,
     playlistId: playlistId ?? this.playlistId,
     trackId: trackId ?? this.trackId,
     position: position ?? this.position,
@@ -1843,6 +1978,7 @@ class PlaylistEntryRow extends DataClass
       id: data.id.present ? data.id.value : this.id,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       deleted: data.deleted.present ? data.deleted.value : this.deleted,
+      localRev: data.localRev.present ? data.localRev.value : this.localRev,
       playlistId: data.playlistId.present
           ? data.playlistId.value
           : this.playlistId,
@@ -1858,6 +1994,7 @@ class PlaylistEntryRow extends DataClass
           ..write('id: $id, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('deleted: $deleted, ')
+          ..write('localRev: $localRev, ')
           ..write('playlistId: $playlistId, ')
           ..write('trackId: $trackId, ')
           ..write('position: $position, ')
@@ -1871,6 +2008,7 @@ class PlaylistEntryRow extends DataClass
     id,
     updatedAt,
     deleted,
+    localRev,
     playlistId,
     trackId,
     position,
@@ -1883,6 +2021,7 @@ class PlaylistEntryRow extends DataClass
           other.id == this.id &&
           other.updatedAt == this.updatedAt &&
           other.deleted == this.deleted &&
+          other.localRev == this.localRev &&
           other.playlistId == this.playlistId &&
           other.trackId == this.trackId &&
           other.position == this.position &&
@@ -1893,6 +2032,7 @@ class PlaylistEntriesCompanion extends UpdateCompanion<PlaylistEntryRow> {
   final Value<String> id;
   final Value<int> updatedAt;
   final Value<bool> deleted;
+  final Value<int> localRev;
   final Value<String> playlistId;
   final Value<String> trackId;
   final Value<double> position;
@@ -1902,6 +2042,7 @@ class PlaylistEntriesCompanion extends UpdateCompanion<PlaylistEntryRow> {
     this.id = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.deleted = const Value.absent(),
+    this.localRev = const Value.absent(),
     this.playlistId = const Value.absent(),
     this.trackId = const Value.absent(),
     this.position = const Value.absent(),
@@ -1912,6 +2053,7 @@ class PlaylistEntriesCompanion extends UpdateCompanion<PlaylistEntryRow> {
     required String id,
     required int updatedAt,
     this.deleted = const Value.absent(),
+    this.localRev = const Value.absent(),
     required String playlistId,
     required String trackId,
     required double position,
@@ -1927,6 +2069,7 @@ class PlaylistEntriesCompanion extends UpdateCompanion<PlaylistEntryRow> {
     Expression<String>? id,
     Expression<int>? updatedAt,
     Expression<bool>? deleted,
+    Expression<int>? localRev,
     Expression<String>? playlistId,
     Expression<String>? trackId,
     Expression<double>? position,
@@ -1937,6 +2080,7 @@ class PlaylistEntriesCompanion extends UpdateCompanion<PlaylistEntryRow> {
       if (id != null) 'id': id,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (deleted != null) 'deleted': deleted,
+      if (localRev != null) 'local_rev': localRev,
       if (playlistId != null) 'playlist_id': playlistId,
       if (trackId != null) 'track_id': trackId,
       if (position != null) 'position': position,
@@ -1949,6 +2093,7 @@ class PlaylistEntriesCompanion extends UpdateCompanion<PlaylistEntryRow> {
     Value<String>? id,
     Value<int>? updatedAt,
     Value<bool>? deleted,
+    Value<int>? localRev,
     Value<String>? playlistId,
     Value<String>? trackId,
     Value<double>? position,
@@ -1959,6 +2104,7 @@ class PlaylistEntriesCompanion extends UpdateCompanion<PlaylistEntryRow> {
       id: id ?? this.id,
       updatedAt: updatedAt ?? this.updatedAt,
       deleted: deleted ?? this.deleted,
+      localRev: localRev ?? this.localRev,
       playlistId: playlistId ?? this.playlistId,
       trackId: trackId ?? this.trackId,
       position: position ?? this.position,
@@ -1978,6 +2124,9 @@ class PlaylistEntriesCompanion extends UpdateCompanion<PlaylistEntryRow> {
     }
     if (deleted.present) {
       map['deleted'] = Variable<bool>(deleted.value);
+    }
+    if (localRev.present) {
+      map['local_rev'] = Variable<int>(localRev.value);
     }
     if (playlistId.present) {
       map['playlist_id'] = Variable<String>(playlistId.value);
@@ -2003,6 +2152,7 @@ class PlaylistEntriesCompanion extends UpdateCompanion<PlaylistEntryRow> {
           ..write('id: $id, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('deleted: $deleted, ')
+          ..write('localRev: $localRev, ')
           ..write('playlistId: $playlistId, ')
           ..write('trackId: $trackId, ')
           ..write('position: $position, ')
@@ -2053,6 +2203,18 @@ class $PlayEventsTable extends PlayEvents
       'CHECK ("deleted" IN (0, 1))',
     ),
     defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _localRevMeta = const VerificationMeta(
+    'localRev',
+  );
+  @override
+  late final GeneratedColumn<int> localRev = GeneratedColumn<int>(
+    'local_rev',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
   );
   static const VerificationMeta _trackIdMeta = const VerificationMeta(
     'trackId',
@@ -2107,6 +2269,7 @@ class $PlayEventsTable extends PlayEvents
     id,
     updatedAt,
     deleted,
+    localRev,
     trackId,
     playedAt,
     listenedMs,
@@ -2141,6 +2304,12 @@ class $PlayEventsTable extends PlayEvents
       context.handle(
         _deletedMeta,
         deleted.isAcceptableOrUnknown(data['deleted']!, _deletedMeta),
+      );
+    }
+    if (data.containsKey('local_rev')) {
+      context.handle(
+        _localRevMeta,
+        localRev.isAcceptableOrUnknown(data['local_rev']!, _localRevMeta),
       );
     }
     if (data.containsKey('track_id')) {
@@ -2194,6 +2363,10 @@ class $PlayEventsTable extends PlayEvents
         DriftSqlType.bool,
         data['${effectivePrefix}deleted'],
       )!,
+      localRev: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}local_rev'],
+      )!,
       trackId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}track_id'],
@@ -2228,6 +2401,11 @@ class PlayEventRow extends DataClass implements Insertable<PlayEventRow> {
 
   /// Tombstone: row was deleted, kept so the deletion can sync.
   final bool deleted;
+
+  /// LOCAL change counter (never synced): set by SQLite triggers on every
+  /// insert/update, from a database-wide sequence. "Changes since N" is how
+  /// sync finds what to send. Added in schema v3.
+  final int localRev;
   final String trackId;
   final int playedAt;
 
@@ -2238,6 +2416,7 @@ class PlayEventRow extends DataClass implements Insertable<PlayEventRow> {
     required this.id,
     required this.updatedAt,
     required this.deleted,
+    required this.localRev,
     required this.trackId,
     required this.playedAt,
     required this.listenedMs,
@@ -2249,6 +2428,7 @@ class PlayEventRow extends DataClass implements Insertable<PlayEventRow> {
     map['id'] = Variable<String>(id);
     map['updated_at'] = Variable<int>(updatedAt);
     map['deleted'] = Variable<bool>(deleted);
+    map['local_rev'] = Variable<int>(localRev);
     map['track_id'] = Variable<String>(trackId);
     map['played_at'] = Variable<int>(playedAt);
     map['listened_ms'] = Variable<int>(listenedMs);
@@ -2261,6 +2441,7 @@ class PlayEventRow extends DataClass implements Insertable<PlayEventRow> {
       id: Value(id),
       updatedAt: Value(updatedAt),
       deleted: Value(deleted),
+      localRev: Value(localRev),
       trackId: Value(trackId),
       playedAt: Value(playedAt),
       listenedMs: Value(listenedMs),
@@ -2277,6 +2458,7 @@ class PlayEventRow extends DataClass implements Insertable<PlayEventRow> {
       id: serializer.fromJson<String>(json['id']),
       updatedAt: serializer.fromJson<int>(json['updatedAt']),
       deleted: serializer.fromJson<bool>(json['deleted']),
+      localRev: serializer.fromJson<int>(json['localRev']),
       trackId: serializer.fromJson<String>(json['trackId']),
       playedAt: serializer.fromJson<int>(json['playedAt']),
       listenedMs: serializer.fromJson<int>(json['listenedMs']),
@@ -2290,6 +2472,7 @@ class PlayEventRow extends DataClass implements Insertable<PlayEventRow> {
       'id': serializer.toJson<String>(id),
       'updatedAt': serializer.toJson<int>(updatedAt),
       'deleted': serializer.toJson<bool>(deleted),
+      'localRev': serializer.toJson<int>(localRev),
       'trackId': serializer.toJson<String>(trackId),
       'playedAt': serializer.toJson<int>(playedAt),
       'listenedMs': serializer.toJson<int>(listenedMs),
@@ -2301,6 +2484,7 @@ class PlayEventRow extends DataClass implements Insertable<PlayEventRow> {
     String? id,
     int? updatedAt,
     bool? deleted,
+    int? localRev,
     String? trackId,
     int? playedAt,
     int? listenedMs,
@@ -2309,6 +2493,7 @@ class PlayEventRow extends DataClass implements Insertable<PlayEventRow> {
     id: id ?? this.id,
     updatedAt: updatedAt ?? this.updatedAt,
     deleted: deleted ?? this.deleted,
+    localRev: localRev ?? this.localRev,
     trackId: trackId ?? this.trackId,
     playedAt: playedAt ?? this.playedAt,
     listenedMs: listenedMs ?? this.listenedMs,
@@ -2319,6 +2504,7 @@ class PlayEventRow extends DataClass implements Insertable<PlayEventRow> {
       id: data.id.present ? data.id.value : this.id,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       deleted: data.deleted.present ? data.deleted.value : this.deleted,
+      localRev: data.localRev.present ? data.localRev.value : this.localRev,
       trackId: data.trackId.present ? data.trackId.value : this.trackId,
       playedAt: data.playedAt.present ? data.playedAt.value : this.playedAt,
       listenedMs: data.listenedMs.present
@@ -2334,6 +2520,7 @@ class PlayEventRow extends DataClass implements Insertable<PlayEventRow> {
           ..write('id: $id, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('deleted: $deleted, ')
+          ..write('localRev: $localRev, ')
           ..write('trackId: $trackId, ')
           ..write('playedAt: $playedAt, ')
           ..write('listenedMs: $listenedMs, ')
@@ -2347,6 +2534,7 @@ class PlayEventRow extends DataClass implements Insertable<PlayEventRow> {
     id,
     updatedAt,
     deleted,
+    localRev,
     trackId,
     playedAt,
     listenedMs,
@@ -2359,6 +2547,7 @@ class PlayEventRow extends DataClass implements Insertable<PlayEventRow> {
           other.id == this.id &&
           other.updatedAt == this.updatedAt &&
           other.deleted == this.deleted &&
+          other.localRev == this.localRev &&
           other.trackId == this.trackId &&
           other.playedAt == this.playedAt &&
           other.listenedMs == this.listenedMs &&
@@ -2369,6 +2558,7 @@ class PlayEventsCompanion extends UpdateCompanion<PlayEventRow> {
   final Value<String> id;
   final Value<int> updatedAt;
   final Value<bool> deleted;
+  final Value<int> localRev;
   final Value<String> trackId;
   final Value<int> playedAt;
   final Value<int> listenedMs;
@@ -2378,6 +2568,7 @@ class PlayEventsCompanion extends UpdateCompanion<PlayEventRow> {
     this.id = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.deleted = const Value.absent(),
+    this.localRev = const Value.absent(),
     this.trackId = const Value.absent(),
     this.playedAt = const Value.absent(),
     this.listenedMs = const Value.absent(),
@@ -2388,6 +2579,7 @@ class PlayEventsCompanion extends UpdateCompanion<PlayEventRow> {
     required String id,
     required int updatedAt,
     this.deleted = const Value.absent(),
+    this.localRev = const Value.absent(),
     required String trackId,
     required int playedAt,
     this.listenedMs = const Value.absent(),
@@ -2402,6 +2594,7 @@ class PlayEventsCompanion extends UpdateCompanion<PlayEventRow> {
     Expression<String>? id,
     Expression<int>? updatedAt,
     Expression<bool>? deleted,
+    Expression<int>? localRev,
     Expression<String>? trackId,
     Expression<int>? playedAt,
     Expression<int>? listenedMs,
@@ -2412,6 +2605,7 @@ class PlayEventsCompanion extends UpdateCompanion<PlayEventRow> {
       if (id != null) 'id': id,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (deleted != null) 'deleted': deleted,
+      if (localRev != null) 'local_rev': localRev,
       if (trackId != null) 'track_id': trackId,
       if (playedAt != null) 'played_at': playedAt,
       if (listenedMs != null) 'listened_ms': listenedMs,
@@ -2424,6 +2618,7 @@ class PlayEventsCompanion extends UpdateCompanion<PlayEventRow> {
     Value<String>? id,
     Value<int>? updatedAt,
     Value<bool>? deleted,
+    Value<int>? localRev,
     Value<String>? trackId,
     Value<int>? playedAt,
     Value<int>? listenedMs,
@@ -2434,6 +2629,7 @@ class PlayEventsCompanion extends UpdateCompanion<PlayEventRow> {
       id: id ?? this.id,
       updatedAt: updatedAt ?? this.updatedAt,
       deleted: deleted ?? this.deleted,
+      localRev: localRev ?? this.localRev,
       trackId: trackId ?? this.trackId,
       playedAt: playedAt ?? this.playedAt,
       listenedMs: listenedMs ?? this.listenedMs,
@@ -2453,6 +2649,9 @@ class PlayEventsCompanion extends UpdateCompanion<PlayEventRow> {
     }
     if (deleted.present) {
       map['deleted'] = Variable<bool>(deleted.value);
+    }
+    if (localRev.present) {
+      map['local_rev'] = Variable<int>(localRev.value);
     }
     if (trackId.present) {
       map['track_id'] = Variable<String>(trackId.value);
@@ -2478,6 +2677,7 @@ class PlayEventsCompanion extends UpdateCompanion<PlayEventRow> {
           ..write('id: $id, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('deleted: $deleted, ')
+          ..write('localRev: $localRev, ')
           ..write('trackId: $trackId, ')
           ..write('playedAt: $playedAt, ')
           ..write('listenedMs: $listenedMs, ')
@@ -3253,6 +3453,431 @@ class TrackFilesCompanion extends UpdateCompanion<TrackFileRow> {
   }
 }
 
+class $SyncStateTable extends SyncState
+    with TableInfo<$SyncStateTable, SyncStateRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SyncStateTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _keyMeta = const VerificationMeta('key');
+  @override
+  late final GeneratedColumn<String> key = GeneratedColumn<String>(
+    'key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _valueMeta = const VerificationMeta('value');
+  @override
+  late final GeneratedColumn<int> value = GeneratedColumn<int>(
+    'value',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [key, value];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'sync_state';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SyncStateRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('key')) {
+      context.handle(
+        _keyMeta,
+        key.isAcceptableOrUnknown(data['key']!, _keyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_keyMeta);
+    }
+    if (data.containsKey('value')) {
+      context.handle(
+        _valueMeta,
+        value.isAcceptableOrUnknown(data['value']!, _valueMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_valueMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {key};
+  @override
+  SyncStateRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SyncStateRow(
+      key: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}key'],
+      )!,
+      value: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}value'],
+      )!,
+    );
+  }
+
+  @override
+  $SyncStateTable createAlias(String alias) {
+    return $SyncStateTable(attachedDatabase, alias);
+  }
+}
+
+class SyncStateRow extends DataClass implements Insertable<SyncStateRow> {
+  final String key;
+  final int value;
+  const SyncStateRow({required this.key, required this.value});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['key'] = Variable<String>(key);
+    map['value'] = Variable<int>(value);
+    return map;
+  }
+
+  SyncStateCompanion toCompanion(bool nullToAbsent) {
+    return SyncStateCompanion(key: Value(key), value: Value(value));
+  }
+
+  factory SyncStateRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SyncStateRow(
+      key: serializer.fromJson<String>(json['key']),
+      value: serializer.fromJson<int>(json['value']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'key': serializer.toJson<String>(key),
+      'value': serializer.toJson<int>(value),
+    };
+  }
+
+  SyncStateRow copyWith({String? key, int? value}) =>
+      SyncStateRow(key: key ?? this.key, value: value ?? this.value);
+  SyncStateRow copyWithCompanion(SyncStateCompanion data) {
+    return SyncStateRow(
+      key: data.key.present ? data.key.value : this.key,
+      value: data.value.present ? data.value.value : this.value,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncStateRow(')
+          ..write('key: $key, ')
+          ..write('value: $value')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(key, value);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SyncStateRow &&
+          other.key == this.key &&
+          other.value == this.value);
+}
+
+class SyncStateCompanion extends UpdateCompanion<SyncStateRow> {
+  final Value<String> key;
+  final Value<int> value;
+  final Value<int> rowid;
+  const SyncStateCompanion({
+    this.key = const Value.absent(),
+    this.value = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SyncStateCompanion.insert({
+    required String key,
+    required int value,
+    this.rowid = const Value.absent(),
+  }) : key = Value(key),
+       value = Value(value);
+  static Insertable<SyncStateRow> custom({
+    Expression<String>? key,
+    Expression<int>? value,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (key != null) 'key': key,
+      if (value != null) 'value': value,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SyncStateCompanion copyWith({
+    Value<String>? key,
+    Value<int>? value,
+    Value<int>? rowid,
+  }) {
+    return SyncStateCompanion(
+      key: key ?? this.key,
+      value: value ?? this.value,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (key.present) {
+      map['key'] = Variable<String>(key.value);
+    }
+    if (value.present) {
+      map['value'] = Variable<int>(value.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncStateCompanion(')
+          ..write('key: $key, ')
+          ..write('value: $value, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $TrackAliasesTable extends TrackAliases
+    with TableInfo<$TrackAliasesTable, TrackAliasRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $TrackAliasesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _aliasIdMeta = const VerificationMeta(
+    'aliasId',
+  );
+  @override
+  late final GeneratedColumn<String> aliasId = GeneratedColumn<String>(
+    'alias_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _trackIdMeta = const VerificationMeta(
+    'trackId',
+  );
+  @override
+  late final GeneratedColumn<String> trackId = GeneratedColumn<String>(
+    'track_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [aliasId, trackId];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'track_aliases';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<TrackAliasRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('alias_id')) {
+      context.handle(
+        _aliasIdMeta,
+        aliasId.isAcceptableOrUnknown(data['alias_id']!, _aliasIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_aliasIdMeta);
+    }
+    if (data.containsKey('track_id')) {
+      context.handle(
+        _trackIdMeta,
+        trackId.isAcceptableOrUnknown(data['track_id']!, _trackIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_trackIdMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {aliasId};
+  @override
+  TrackAliasRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return TrackAliasRow(
+      aliasId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}alias_id'],
+      )!,
+      trackId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}track_id'],
+      )!,
+    );
+  }
+
+  @override
+  $TrackAliasesTable createAlias(String alias) {
+    return $TrackAliasesTable(attachedDatabase, alias);
+  }
+}
+
+class TrackAliasRow extends DataClass implements Insertable<TrackAliasRow> {
+  final String aliasId;
+  final String trackId;
+  const TrackAliasRow({required this.aliasId, required this.trackId});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['alias_id'] = Variable<String>(aliasId);
+    map['track_id'] = Variable<String>(trackId);
+    return map;
+  }
+
+  TrackAliasesCompanion toCompanion(bool nullToAbsent) {
+    return TrackAliasesCompanion(
+      aliasId: Value(aliasId),
+      trackId: Value(trackId),
+    );
+  }
+
+  factory TrackAliasRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return TrackAliasRow(
+      aliasId: serializer.fromJson<String>(json['aliasId']),
+      trackId: serializer.fromJson<String>(json['trackId']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'aliasId': serializer.toJson<String>(aliasId),
+      'trackId': serializer.toJson<String>(trackId),
+    };
+  }
+
+  TrackAliasRow copyWith({String? aliasId, String? trackId}) => TrackAliasRow(
+    aliasId: aliasId ?? this.aliasId,
+    trackId: trackId ?? this.trackId,
+  );
+  TrackAliasRow copyWithCompanion(TrackAliasesCompanion data) {
+    return TrackAliasRow(
+      aliasId: data.aliasId.present ? data.aliasId.value : this.aliasId,
+      trackId: data.trackId.present ? data.trackId.value : this.trackId,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TrackAliasRow(')
+          ..write('aliasId: $aliasId, ')
+          ..write('trackId: $trackId')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(aliasId, trackId);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is TrackAliasRow &&
+          other.aliasId == this.aliasId &&
+          other.trackId == this.trackId);
+}
+
+class TrackAliasesCompanion extends UpdateCompanion<TrackAliasRow> {
+  final Value<String> aliasId;
+  final Value<String> trackId;
+  final Value<int> rowid;
+  const TrackAliasesCompanion({
+    this.aliasId = const Value.absent(),
+    this.trackId = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  TrackAliasesCompanion.insert({
+    required String aliasId,
+    required String trackId,
+    this.rowid = const Value.absent(),
+  }) : aliasId = Value(aliasId),
+       trackId = Value(trackId);
+  static Insertable<TrackAliasRow> custom({
+    Expression<String>? aliasId,
+    Expression<String>? trackId,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (aliasId != null) 'alias_id': aliasId,
+      if (trackId != null) 'track_id': trackId,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  TrackAliasesCompanion copyWith({
+    Value<String>? aliasId,
+    Value<String>? trackId,
+    Value<int>? rowid,
+  }) {
+    return TrackAliasesCompanion(
+      aliasId: aliasId ?? this.aliasId,
+      trackId: trackId ?? this.trackId,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (aliasId.present) {
+      map['alias_id'] = Variable<String>(aliasId.value);
+    }
+    if (trackId.present) {
+      map['track_id'] = Variable<String>(trackId.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TrackAliasesCompanion(')
+          ..write('aliasId: $aliasId, ')
+          ..write('trackId: $trackId, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -3264,6 +3889,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $PlayEventsTable playEvents = $PlayEventsTable(this);
   late final $LibraryFoldersTable libraryFolders = $LibraryFoldersTable(this);
   late final $TrackFilesTable trackFiles = $TrackFilesTable(this);
+  late final $SyncStateTable syncState = $SyncStateTable(this);
+  late final $TrackAliasesTable trackAliases = $TrackAliasesTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -3275,6 +3902,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     playEvents,
     libraryFolders,
     trackFiles,
+    syncState,
+    trackAliases,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -3292,6 +3921,7 @@ typedef $$TracksTableCreateCompanionBuilder = TracksCompanion Function({
   required String id,
   required int updatedAt,
   Value<bool> deleted,
+  Value<int> localRev,
   required String fingerprint,
   required String title,
   Value<String> artist,
@@ -3314,6 +3944,7 @@ typedef $$TracksTableUpdateCompanionBuilder = TracksCompanion Function({
   Value<String> id,
   Value<int> updatedAt,
   Value<bool> deleted,
+  Value<int> localRev,
   Value<String> fingerprint,
   Value<String> title,
   Value<String> artist,
@@ -3415,6 +4046,11 @@ class $$TracksTableFilterComposer
 
   ColumnFilters<bool> get deleted => $composableBuilder(
     column: $table.deleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get localRev => $composableBuilder(
+    column: $table.localRev,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3598,6 +4234,11 @@ class $$TracksTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get localRev => $composableBuilder(
+    column: $table.localRev,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get fingerprint => $composableBuilder(
     column: $table.fingerprint,
     builder: (column) => ColumnOrderings(column),
@@ -3696,6 +4337,9 @@ class $$TracksTableAnnotationComposer
 
   GeneratedColumn<bool> get deleted =>
       $composableBuilder(column: $table.deleted, builder: (column) => column);
+
+  GeneratedColumn<int> get localRev =>
+      $composableBuilder(column: $table.localRev, builder: (column) => column);
 
   GeneratedColumn<String> get fingerprint => $composableBuilder(
     column: $table.fingerprint,
@@ -3866,6 +4510,7 @@ class $$TracksTableTableManager
                 Value<String> id = const Value.absent(),
                 Value<int> updatedAt = const Value.absent(),
                 Value<bool> deleted = const Value.absent(),
+                Value<int> localRev = const Value.absent(),
                 Value<String> fingerprint = const Value.absent(),
                 Value<String> title = const Value.absent(),
                 Value<String> artist = const Value.absent(),
@@ -3887,6 +4532,7 @@ class $$TracksTableTableManager
                 id: id,
                 updatedAt: updatedAt,
                 deleted: deleted,
+                localRev: localRev,
                 fingerprint: fingerprint,
                 title: title,
                 artist: artist,
@@ -3910,6 +4556,7 @@ class $$TracksTableTableManager
                 required String id,
                 required int updatedAt,
                 Value<bool> deleted = const Value.absent(),
+                Value<int> localRev = const Value.absent(),
                 required String fingerprint,
                 required String title,
                 Value<String> artist = const Value.absent(),
@@ -3931,6 +4578,7 @@ class $$TracksTableTableManager
                 id: id,
                 updatedAt: updatedAt,
                 deleted: deleted,
+                localRev: localRev,
                 fingerprint: fingerprint,
                 title: title,
                 artist: artist,
@@ -4066,6 +4714,7 @@ typedef $$PlaylistsTableCreateCompanionBuilder = PlaylistsCompanion Function({
   required String id,
   required int updatedAt,
   Value<bool> deleted,
+  Value<int> localRev,
   required String name,
   Value<String?> description,
   Value<bool> isOffline,
@@ -4076,6 +4725,7 @@ typedef $$PlaylistsTableUpdateCompanionBuilder = PlaylistsCompanion Function({
   Value<String> id,
   Value<int> updatedAt,
   Value<bool> deleted,
+  Value<int> localRev,
   Value<String> name,
   Value<String?> description,
   Value<bool> isOffline,
@@ -4129,6 +4779,11 @@ class $$PlaylistsTableFilterComposer
 
   ColumnFilters<bool> get deleted => $composableBuilder(
     column: $table.deleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get localRev => $composableBuilder(
+    column: $table.localRev,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4202,6 +4857,11 @@ class $$PlaylistsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get localRev => $composableBuilder(
+    column: $table.localRev,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get name => $composableBuilder(
     column: $table.name,
     builder: (column) => ColumnOrderings(column),
@@ -4240,6 +4900,9 @@ class $$PlaylistsTableAnnotationComposer
 
   GeneratedColumn<bool> get deleted =>
       $composableBuilder(column: $table.deleted, builder: (column) => column);
+
+  GeneratedColumn<int> get localRev =>
+      $composableBuilder(column: $table.localRev, builder: (column) => column);
 
   GeneratedColumn<String> get name =>
       $composableBuilder(column: $table.name, builder: (column) => column);
@@ -4312,6 +4975,7 @@ class $$PlaylistsTableTableManager
                 Value<String> id = const Value.absent(),
                 Value<int> updatedAt = const Value.absent(),
                 Value<bool> deleted = const Value.absent(),
+                Value<int> localRev = const Value.absent(),
                 Value<String> name = const Value.absent(),
                 Value<String?> description = const Value.absent(),
                 Value<bool> isOffline = const Value.absent(),
@@ -4321,6 +4985,7 @@ class $$PlaylistsTableTableManager
                 id: id,
                 updatedAt: updatedAt,
                 deleted: deleted,
+                localRev: localRev,
                 name: name,
                 description: description,
                 isOffline: isOffline,
@@ -4332,6 +4997,7 @@ class $$PlaylistsTableTableManager
                 required String id,
                 required int updatedAt,
                 Value<bool> deleted = const Value.absent(),
+                Value<int> localRev = const Value.absent(),
                 required String name,
                 Value<String?> description = const Value.absent(),
                 Value<bool> isOffline = const Value.absent(),
@@ -4341,6 +5007,7 @@ class $$PlaylistsTableTableManager
                 id: id,
                 updatedAt: updatedAt,
                 deleted: deleted,
+                localRev: localRev,
                 name: name,
                 description: description,
                 isOffline: isOffline,
@@ -4410,6 +5077,7 @@ typedef $$PlaylistEntriesTableCreateCompanionBuilder =
       required String id,
       required int updatedAt,
       Value<bool> deleted,
+      Value<int> localRev,
       required String playlistId,
       required String trackId,
       required double position,
@@ -4421,6 +5089,7 @@ typedef $$PlaylistEntriesTableUpdateCompanionBuilder =
       Value<String> id,
       Value<int> updatedAt,
       Value<bool> deleted,
+      Value<int> localRev,
       Value<String> playlistId,
       Value<String> trackId,
       Value<double> position,
@@ -4493,6 +5162,11 @@ class $$PlaylistEntriesTableFilterComposer
 
   ColumnFilters<bool> get deleted => $composableBuilder(
     column: $table.deleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get localRev => $composableBuilder(
+    column: $table.localRev,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4577,6 +5251,11 @@ class $$PlaylistEntriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get localRev => $composableBuilder(
+    column: $table.localRev,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<double> get position => $composableBuilder(
     column: $table.position,
     builder: (column) => ColumnOrderings(column),
@@ -4651,6 +5330,9 @@ class $$PlaylistEntriesTableAnnotationComposer
 
   GeneratedColumn<bool> get deleted =>
       $composableBuilder(column: $table.deleted, builder: (column) => column);
+
+  GeneratedColumn<int> get localRev =>
+      $composableBuilder(column: $table.localRev, builder: (column) => column);
 
   GeneratedColumn<double> get position =>
       $composableBuilder(column: $table.position, builder: (column) => column);
@@ -4738,6 +5420,7 @@ class $$PlaylistEntriesTableTableManager
                 Value<String> id = const Value.absent(),
                 Value<int> updatedAt = const Value.absent(),
                 Value<bool> deleted = const Value.absent(),
+                Value<int> localRev = const Value.absent(),
                 Value<String> playlistId = const Value.absent(),
                 Value<String> trackId = const Value.absent(),
                 Value<double> position = const Value.absent(),
@@ -4747,6 +5430,7 @@ class $$PlaylistEntriesTableTableManager
                 id: id,
                 updatedAt: updatedAt,
                 deleted: deleted,
+                localRev: localRev,
                 playlistId: playlistId,
                 trackId: trackId,
                 position: position,
@@ -4758,6 +5442,7 @@ class $$PlaylistEntriesTableTableManager
                 required String id,
                 required int updatedAt,
                 Value<bool> deleted = const Value.absent(),
+                Value<int> localRev = const Value.absent(),
                 required String playlistId,
                 required String trackId,
                 required double position,
@@ -4767,6 +5452,7 @@ class $$PlaylistEntriesTableTableManager
                 id: id,
                 updatedAt: updatedAt,
                 deleted: deleted,
+                localRev: localRev,
                 playlistId: playlistId,
                 trackId: trackId,
                 position: position,
@@ -4853,6 +5539,7 @@ typedef $$PlayEventsTableCreateCompanionBuilder = PlayEventsCompanion Function({
   required String id,
   required int updatedAt,
   Value<bool> deleted,
+  Value<int> localRev,
   required String trackId,
   required int playedAt,
   Value<int> listenedMs,
@@ -4863,6 +5550,7 @@ typedef $$PlayEventsTableUpdateCompanionBuilder = PlayEventsCompanion Function({
   Value<String> id,
   Value<int> updatedAt,
   Value<bool> deleted,
+  Value<int> localRev,
   Value<String> trackId,
   Value<int> playedAt,
   Value<int> listenedMs,
@@ -4913,6 +5601,11 @@ class $$PlayEventsTableFilterComposer
 
   ColumnFilters<bool> get deleted => $composableBuilder(
     column: $table.deleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get localRev => $composableBuilder(
+    column: $table.localRev,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4979,6 +5672,11 @@ class $$PlayEventsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get localRev => $composableBuilder(
+    column: $table.localRev,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get playedAt => $composableBuilder(
     column: $table.playedAt,
     builder: (column) => ColumnOrderings(column),
@@ -5035,6 +5733,9 @@ class $$PlayEventsTableAnnotationComposer
 
   GeneratedColumn<bool> get deleted =>
       $composableBuilder(column: $table.deleted, builder: (column) => column);
+
+  GeneratedColumn<int> get localRev =>
+      $composableBuilder(column: $table.localRev, builder: (column) => column);
 
   GeneratedColumn<int> get playedAt =>
       $composableBuilder(column: $table.playedAt, builder: (column) => column);
@@ -5102,6 +5803,7 @@ class $$PlayEventsTableTableManager
                 Value<String> id = const Value.absent(),
                 Value<int> updatedAt = const Value.absent(),
                 Value<bool> deleted = const Value.absent(),
+                Value<int> localRev = const Value.absent(),
                 Value<String> trackId = const Value.absent(),
                 Value<int> playedAt = const Value.absent(),
                 Value<int> listenedMs = const Value.absent(),
@@ -5111,6 +5813,7 @@ class $$PlayEventsTableTableManager
                 id: id,
                 updatedAt: updatedAt,
                 deleted: deleted,
+                localRev: localRev,
                 trackId: trackId,
                 playedAt: playedAt,
                 listenedMs: listenedMs,
@@ -5122,6 +5825,7 @@ class $$PlayEventsTableTableManager
                 required String id,
                 required int updatedAt,
                 Value<bool> deleted = const Value.absent(),
+                Value<int> localRev = const Value.absent(),
                 required String trackId,
                 required int playedAt,
                 Value<int> listenedMs = const Value.absent(),
@@ -5131,6 +5835,7 @@ class $$PlayEventsTableTableManager
                 id: id,
                 updatedAt: updatedAt,
                 deleted: deleted,
+                localRev: localRev,
                 trackId: trackId,
                 playedAt: playedAt,
                 listenedMs: listenedMs,
@@ -5917,6 +6622,298 @@ typedef $$TrackFilesTableProcessedTableManager =
       TrackFileRow,
       PrefetchHooks Function({bool trackId, bool folderId})
     >;
+typedef $$SyncStateTableCreateCompanionBuilder = SyncStateCompanion Function({
+  required String key,
+  required int value,
+  Value<int> rowid,
+});
+typedef $$SyncStateTableUpdateCompanionBuilder = SyncStateCompanion Function({
+  Value<String> key,
+  Value<int> value,
+  Value<int> rowid,
+});
+
+class $$SyncStateTableFilterComposer
+    extends Composer<_$AppDatabase, $SyncStateTable> {
+  $$SyncStateTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get key => $composableBuilder(
+    column: $table.key,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get value => $composableBuilder(
+    column: $table.value,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SyncStateTableOrderingComposer
+    extends Composer<_$AppDatabase, $SyncStateTable> {
+  $$SyncStateTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get key => $composableBuilder(
+    column: $table.key,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get value => $composableBuilder(
+    column: $table.value,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SyncStateTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SyncStateTable> {
+  $$SyncStateTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get key =>
+      $composableBuilder(column: $table.key, builder: (column) => column);
+
+  GeneratedColumn<int> get value =>
+      $composableBuilder(column: $table.value, builder: (column) => column);
+}
+
+class $$SyncStateTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SyncStateTable,
+          SyncStateRow,
+          $$SyncStateTableFilterComposer,
+          $$SyncStateTableOrderingComposer,
+          $$SyncStateTableAnnotationComposer,
+          $$SyncStateTableCreateCompanionBuilder,
+          $$SyncStateTableUpdateCompanionBuilder,
+          (
+            SyncStateRow,
+            BaseReferences<_$AppDatabase, $SyncStateTable, SyncStateRow>,
+          ),
+          SyncStateRow,
+          PrefetchHooks Function()
+        > {
+  $$SyncStateTableTableManager(_$AppDatabase db, $SyncStateTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SyncStateTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SyncStateTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SyncStateTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> key = const Value.absent(),
+            Value<int> value = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) => SyncStateCompanion(key: key, value: value, rowid: rowid),
+          createCompanionCallback: ({
+            required String key,
+            required int value,
+            Value<int> rowid = const Value.absent(),
+          }) => SyncStateCompanion.insert(key: key, value: value, rowid: rowid),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$SyncStateTable, SyncStateRow>(table),
+                  BaseReferences<_$AppDatabase, $SyncStateTable, SyncStateRow>(
+                    db,
+                    table,
+                    e,
+                  ),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SyncStateTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SyncStateTable,
+      SyncStateRow,
+      $$SyncStateTableFilterComposer,
+      $$SyncStateTableOrderingComposer,
+      $$SyncStateTableAnnotationComposer,
+      $$SyncStateTableCreateCompanionBuilder,
+      $$SyncStateTableUpdateCompanionBuilder,
+      (
+        SyncStateRow,
+        BaseReferences<_$AppDatabase, $SyncStateTable, SyncStateRow>,
+      ),
+      SyncStateRow,
+      PrefetchHooks Function()
+    >;
+typedef $$TrackAliasesTableCreateCompanionBuilder =
+    TrackAliasesCompanion Function({
+      required String aliasId,
+      required String trackId,
+      Value<int> rowid,
+    });
+typedef $$TrackAliasesTableUpdateCompanionBuilder =
+    TrackAliasesCompanion Function({
+      Value<String> aliasId,
+      Value<String> trackId,
+      Value<int> rowid,
+    });
+
+class $$TrackAliasesTableFilterComposer
+    extends Composer<_$AppDatabase, $TrackAliasesTable> {
+  $$TrackAliasesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get aliasId => $composableBuilder(
+    column: $table.aliasId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get trackId => $composableBuilder(
+    column: $table.trackId,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$TrackAliasesTableOrderingComposer
+    extends Composer<_$AppDatabase, $TrackAliasesTable> {
+  $$TrackAliasesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get aliasId => $composableBuilder(
+    column: $table.aliasId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get trackId => $composableBuilder(
+    column: $table.trackId,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$TrackAliasesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $TrackAliasesTable> {
+  $$TrackAliasesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get aliasId =>
+      $composableBuilder(column: $table.aliasId, builder: (column) => column);
+
+  GeneratedColumn<String> get trackId =>
+      $composableBuilder(column: $table.trackId, builder: (column) => column);
+}
+
+class $$TrackAliasesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $TrackAliasesTable,
+          TrackAliasRow,
+          $$TrackAliasesTableFilterComposer,
+          $$TrackAliasesTableOrderingComposer,
+          $$TrackAliasesTableAnnotationComposer,
+          $$TrackAliasesTableCreateCompanionBuilder,
+          $$TrackAliasesTableUpdateCompanionBuilder,
+          (
+            TrackAliasRow,
+            BaseReferences<_$AppDatabase, $TrackAliasesTable, TrackAliasRow>,
+          ),
+          TrackAliasRow,
+          PrefetchHooks Function()
+        > {
+  $$TrackAliasesTableTableManager(_$AppDatabase db, $TrackAliasesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$TrackAliasesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$TrackAliasesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$TrackAliasesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> aliasId = const Value.absent(),
+                Value<String> trackId = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => TrackAliasesCompanion(
+                aliasId: aliasId,
+                trackId: trackId,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String aliasId,
+                required String trackId,
+                Value<int> rowid = const Value.absent(),
+              }) => TrackAliasesCompanion.insert(
+                aliasId: aliasId,
+                trackId: trackId,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$TrackAliasesTable, TrackAliasRow>(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $TrackAliasesTable,
+                    TrackAliasRow
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$TrackAliasesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $TrackAliasesTable,
+      TrackAliasRow,
+      $$TrackAliasesTableFilterComposer,
+      $$TrackAliasesTableOrderingComposer,
+      $$TrackAliasesTableAnnotationComposer,
+      $$TrackAliasesTableCreateCompanionBuilder,
+      $$TrackAliasesTableUpdateCompanionBuilder,
+      (
+        TrackAliasRow,
+        BaseReferences<_$AppDatabase, $TrackAliasesTable, TrackAliasRow>,
+      ),
+      TrackAliasRow,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -5933,4 +6930,8 @@ class $AppDatabaseManager {
       $$LibraryFoldersTableTableManager(_db, _db.libraryFolders);
   $$TrackFilesTableTableManager get trackFiles =>
       $$TrackFilesTableTableManager(_db, _db.trackFiles);
+  $$SyncStateTableTableManager get syncState =>
+      $$SyncStateTableTableManager(_db, _db.syncState);
+  $$TrackAliasesTableTableManager get trackAliases =>
+      $$TrackAliasesTableTableManager(_db, _db.trackAliases);
 }

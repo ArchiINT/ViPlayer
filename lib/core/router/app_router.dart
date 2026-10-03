@@ -15,6 +15,8 @@ import '../../features/playlists/recent_screen.dart';
 import '../../features/search/search_screen.dart';
 import '../../features/settings/folders_screen.dart';
 import '../../features/settings/settings_screen.dart';
+import '../../features/sync/pairing_code_dialog.dart';
+import '../../features/sync/sync_screen.dart';
 import '../../shared/widgets/app_shell.dart';
 import '../theme/app_theme.dart';
 
@@ -26,6 +28,7 @@ abstract final class AppRoutes {
   static const downloads = '/downloads';
   static const settings = '/settings';
   static const folders = '/settings/folders';
+  static const sync = '/settings/sync';
 
   static const liked = '/playlists/liked';
   static const recent = '/playlists/recent';
@@ -74,8 +77,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       // Each tab keeps its own navigation stack and scroll position.
       StatefulShellRoute.indexedStack(
-        builder: (context, state, shell) =>
-            AppShell(shell: shell, miniPlayer: const MiniPlayer()),
+        builder: (context, state, shell) => PairingCodeListener(
+          child: AppShell(shell: shell, miniPlayer: const MiniPlayer()),
+        ),
         branches: [
           _branch(
             AppRoutes.library,
@@ -115,6 +119,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: 'folders',
                 builder: (context, state) => const FoldersScreen(),
+              ),
+              GoRoute(
+                path: 'sync',
+                builder: (context, state) => const SyncScreen(),
               ),
             ],
           ),

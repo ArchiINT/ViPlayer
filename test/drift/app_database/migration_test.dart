@@ -9,6 +9,7 @@ import 'generated/schema.dart';
 
 import 'generated/schema_v1.dart' as v1;
 import 'generated/schema_v2.dart' as v2;
+import 'generated/schema_v3.dart' as v3;
 
 void main() {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
@@ -216,5 +217,56 @@ void main() {
         );
       },
     );
+  });
+
+  // v3 adds sync revisions: every existing row must get one (so the first
+  // sync sends it) and nothing else may change.
+  test('migration from v2 to v3 keeps data and assigns revisions', () async {
+    final schema = await verifier.schemaAt(2);
+    final old = v2.DatabaseAtV2(schema.newConnection());
+    await old
+        .into(old.tracks)
+        .insert(
+          const v2.TracksData(
+            id: 't1',
+            updatedAt: 10,
+            deleted: 0,
+            fingerprint: 'fp',
+            title: 'Song',
+            artist: 'A',
+            album: '',
+            durationMs: 1,
+            source: 'local',
+            liked: 1,
+            likedAt: 11,
+            addedAt: 9,
+          ),
+        );
+    await old
+        .into(old.playlists)
+        .insert(
+          const v2.PlaylistsData(
+            id: 'p1',
+            updatedAt: 12,
+            deleted: 0,
+            name: 'Road',
+            isOffline: 0,
+            createdAt: 12,
+          ),
+        );
+    await old.close();
+
+    final db = AppDatabase(schema.newConnection());
+    await verifier.migrateAndValidate(db, 3);
+    final track = await db.select(db.tracks).getSingle();
+    final playlist = await db.select(db.playlists).getSingle();
+    expect(track.title, 'Song');
+    expect(track.updatedAt, 10, reason: 'sync timestamps untouched');
+    expect(track.liked, isTrue);
+    expect(track.localRev, greaterThan(0));
+    expect(playlist.localRev, greaterThan(0));
+    expect(playlist.localRev, isNot(track.localRev));
+    expect(await db.currentRev(), 2);
+    await db.close();
   });
 }

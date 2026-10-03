@@ -10,6 +10,7 @@ import '../../core/platform/app_directories.dart';
 import '../../core/router/app_router.dart';
 import '../../core/settings/app_settings.dart';
 import '../../core/settings/settings_providers.dart';
+import '../../core/sync/sync_providers.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
@@ -99,6 +100,22 @@ class SettingsScreen extends ConsumerWidget {
                   ref.watch(appDirectoriesProvider).downloads,
                   style: pathStyle,
                 ),
+              ),
+            ],
+          ),
+          SectionHeader(l10n.settingsSync),
+          GlassGroup(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.devices_rounded),
+                title: Text(l10n.settingsSync),
+                subtitle: Text(
+                  l10n.syncVisibleAs(
+                    ref.watch(syncSnapshotProvider.select((s) => s.deviceName)),
+                  ),
+                ),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => context.go(AppRoutes.sync),
               ),
             ],
           ),

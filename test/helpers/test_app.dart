@@ -15,6 +15,7 @@ import 'package:viplayer/core/player/player_providers.dart';
 import 'package:viplayer/core/player/player_service.dart';
 import 'package:viplayer/core/player/preview_player.dart';
 import 'package:viplayer/core/settings/settings_providers.dart';
+import 'package:viplayer/core/sync/sync_providers.dart';
 
 import 'fake_audio_backend.dart';
 import 'fake_preview_backend.dart';
@@ -99,6 +100,8 @@ class TestApp {
           // No real yt-dlp processes in widget tests.
           ytDlpProvider.overrideWithValue(null),
           previewPlayerProvider.overrideWithValue(preview),
+          // No real servers or sockets in widget tests.
+          syncBootstrapProvider.overrideWith((ref) async {}),
           ...extraOverrides,
         ],
         child: const ViPlayerApp(),

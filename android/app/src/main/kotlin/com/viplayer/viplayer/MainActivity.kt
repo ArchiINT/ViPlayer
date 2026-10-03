@@ -9,5 +9,6 @@ class MainActivity : AudioServiceActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         MediaStoreChannel(applicationContext).register(flutterEngine)
+        NetworkChannel(applicationContext).register(flutterEngine)
     }
 }

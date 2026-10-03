@@ -566,8 +566,332 @@ i1.GeneratedColumn<int> _column_35(String aliasedName) =>
       $customConstraints:
           'NULL REFERENCES library_folders(id)ON DELETE CASCADE',
     );
+
+final class Schema3 extends i0.VersionedSchema {
+  Schema3({required super.database}) : super(version: 3);
+  @override
+  late final List<i1.DatabaseSchemaEntity> entities = [
+    tracks,
+    playlists,
+    playlistEntries,
+    playEvents,
+    libraryFolders,
+    trackFiles,
+    syncState,
+    trackAliases,
+  ];
+  late final Shape6 tracks = Shape6(
+    source: i0.VersionedTable(
+      entityName: 'tracks',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: ['PRIMARY KEY(id)'],
+      columns: [
+        _column_0,
+        _column_1,
+        _column_2,
+        _column_36,
+        _column_3,
+        _column_4,
+        _column_5,
+        _column_6,
+        _column_7,
+        _column_8,
+        _column_9,
+        _column_10,
+        _column_11,
+        _column_12,
+        _column_13,
+        _column_14,
+        _column_15,
+        _column_16,
+        _column_17,
+        _column_18,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape7 playlists = Shape7(
+    source: i0.VersionedTable(
+      entityName: 'playlists',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: ['PRIMARY KEY(id)'],
+      columns: [
+        _column_0,
+        _column_1,
+        _column_2,
+        _column_36,
+        _column_19,
+        _column_20,
+        _column_21,
+        _column_22,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape8 playlistEntries = Shape8(
+    source: i0.VersionedTable(
+      entityName: 'playlist_entries',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: ['PRIMARY KEY(id)'],
+      columns: [
+        _column_0,
+        _column_1,
+        _column_2,
+        _column_36,
+        _column_23,
+        _column_24,
+        _column_25,
+        _column_18,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape9 playEvents = Shape9(
+    source: i0.VersionedTable(
+      entityName: 'play_events',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: ['PRIMARY KEY(id)'],
+      columns: [
+        _column_0,
+        _column_1,
+        _column_2,
+        _column_36,
+        _column_24,
+        _column_26,
+        _column_27,
+        _column_28,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape4 libraryFolders = Shape4(
+    source: i0.VersionedTable(
+      entityName: 'library_folders',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: [],
+      columns: [_column_29, _column_30, _column_31, _column_18],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape5 trackFiles = Shape5(
+    source: i0.VersionedTable(
+      entityName: 'track_files',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: [],
+      columns: [
+        _column_29,
+        _column_24,
+        _column_30,
+        _column_32,
+        _column_33,
+        _column_34,
+        _column_35,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape10 syncState = Shape10(
+    source: i0.VersionedTable(
+      entityName: 'sync_state',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: ['PRIMARY KEY("key")'],
+      columns: [_column_37, _column_38],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape11 trackAliases = Shape11(
+    source: i0.VersionedTable(
+      entityName: 'track_aliases',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: ['PRIMARY KEY(alias_id)'],
+      columns: [_column_39, _column_40],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+}
+
+class Shape6 extends i0.VersionedTable {
+  Shape6({required super.source, required super.alias}) : super.aliased();
+  i1.GeneratedColumn<String> get id =>
+      columnsByName['id']! as i1.GeneratedColumn<String>;
+  i1.GeneratedColumn<int> get updatedAt =>
+      columnsByName['updated_at']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<int> get deleted =>
+      columnsByName['deleted']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<int> get localRev =>
+      columnsByName['local_rev']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<String> get fingerprint =>
+      columnsByName['fingerprint']! as i1.GeneratedColumn<String>;
+  i1.GeneratedColumn<String> get title =>
+      columnsByName['title']! as i1.GeneratedColumn<String>;
+  i1.GeneratedColumn<String> get artist =>
+      columnsByName['artist']! as i1.GeneratedColumn<String>;
+  i1.GeneratedColumn<String> get album =>
+      columnsByName['album']! as i1.GeneratedColumn<String>;
+  i1.GeneratedColumn<String> get albumArtist =>
+      columnsByName['album_artist']! as i1.GeneratedColumn<String>;
+  i1.GeneratedColumn<int> get durationMs =>
+      columnsByName['duration_ms']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<int> get trackNumber =>
+      columnsByName['track_number']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<int> get discNumber =>
+      columnsByName['disc_number']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<int> get year =>
+      columnsByName['year']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<String> get genre =>
+      columnsByName['genre']! as i1.GeneratedColumn<String>;
+  i1.GeneratedColumn<String> get source =>
+      columnsByName['source']! as i1.GeneratedColumn<String>;
+  i1.GeneratedColumn<String> get sourceUrl =>
+      columnsByName['source_url']! as i1.GeneratedColumn<String>;
+  i1.GeneratedColumn<String> get isrc =>
+      columnsByName['isrc']! as i1.GeneratedColumn<String>;
+  i1.GeneratedColumn<int> get liked =>
+      columnsByName['liked']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<int> get likedAt =>
+      columnsByName['liked_at']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<int> get addedAt =>
+      columnsByName['added_at']! as i1.GeneratedColumn<int>;
+}
+
+i1.GeneratedColumn<int> _column_36(String aliasedName) =>
+    i1.GeneratedColumn<int>(
+      'local_rev',
+      aliasedName,
+      false,
+      type: i1.DriftSqlType.int,
+      $customConstraints: 'NOT NULL DEFAULT 0',
+      defaultValue: const i1.CustomExpression('0'),
+    );
+
+class Shape7 extends i0.VersionedTable {
+  Shape7({required super.source, required super.alias}) : super.aliased();
+  i1.GeneratedColumn<String> get id =>
+      columnsByName['id']! as i1.GeneratedColumn<String>;
+  i1.GeneratedColumn<int> get updatedAt =>
+      columnsByName['updated_at']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<int> get deleted =>
+      columnsByName['deleted']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<int> get localRev =>
+      columnsByName['local_rev']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<String> get name =>
+      columnsByName['name']! as i1.GeneratedColumn<String>;
+  i1.GeneratedColumn<String> get description =>
+      columnsByName['description']! as i1.GeneratedColumn<String>;
+  i1.GeneratedColumn<int> get isOffline =>
+      columnsByName['is_offline']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<int> get createdAt =>
+      columnsByName['created_at']! as i1.GeneratedColumn<int>;
+}
+
+class Shape8 extends i0.VersionedTable {
+  Shape8({required super.source, required super.alias}) : super.aliased();
+  i1.GeneratedColumn<String> get id =>
+      columnsByName['id']! as i1.GeneratedColumn<String>;
+  i1.GeneratedColumn<int> get updatedAt =>
+      columnsByName['updated_at']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<int> get deleted =>
+      columnsByName['deleted']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<int> get localRev =>
+      columnsByName['local_rev']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<String> get playlistId =>
+      columnsByName['playlist_id']! as i1.GeneratedColumn<String>;
+  i1.GeneratedColumn<String> get trackId =>
+      columnsByName['track_id']! as i1.GeneratedColumn<String>;
+  i1.GeneratedColumn<double> get position =>
+      columnsByName['position']! as i1.GeneratedColumn<double>;
+  i1.GeneratedColumn<int> get addedAt =>
+      columnsByName['added_at']! as i1.GeneratedColumn<int>;
+}
+
+class Shape9 extends i0.VersionedTable {
+  Shape9({required super.source, required super.alias}) : super.aliased();
+  i1.GeneratedColumn<String> get id =>
+      columnsByName['id']! as i1.GeneratedColumn<String>;
+  i1.GeneratedColumn<int> get updatedAt =>
+      columnsByName['updated_at']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<int> get deleted =>
+      columnsByName['deleted']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<int> get localRev =>
+      columnsByName['local_rev']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<String> get trackId =>
+      columnsByName['track_id']! as i1.GeneratedColumn<String>;
+  i1.GeneratedColumn<int> get playedAt =>
+      columnsByName['played_at']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<int> get listenedMs =>
+      columnsByName['listened_ms']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<String> get deviceId =>
+      columnsByName['device_id']! as i1.GeneratedColumn<String>;
+}
+
+class Shape10 extends i0.VersionedTable {
+  Shape10({required super.source, required super.alias}) : super.aliased();
+  i1.GeneratedColumn<String> get key =>
+      columnsByName['key']! as i1.GeneratedColumn<String>;
+  i1.GeneratedColumn<int> get value =>
+      columnsByName['value']! as i1.GeneratedColumn<int>;
+}
+
+i1.GeneratedColumn<String> _column_37(String aliasedName) =>
+    i1.GeneratedColumn<String>(
+      'key',
+      aliasedName,
+      false,
+      type: i1.DriftSqlType.string,
+      $customConstraints: 'NOT NULL',
+    );
+i1.GeneratedColumn<int> _column_38(String aliasedName) =>
+    i1.GeneratedColumn<int>(
+      'value',
+      aliasedName,
+      false,
+      type: i1.DriftSqlType.int,
+      $customConstraints: 'NOT NULL',
+    );
+
+class Shape11 extends i0.VersionedTable {
+  Shape11({required super.source, required super.alias}) : super.aliased();
+  i1.GeneratedColumn<String> get aliasId =>
+      columnsByName['alias_id']! as i1.GeneratedColumn<String>;
+  i1.GeneratedColumn<String> get trackId =>
+      columnsByName['track_id']! as i1.GeneratedColumn<String>;
+}
+
+i1.GeneratedColumn<String> _column_39(String aliasedName) =>
+    i1.GeneratedColumn<String>(
+      'alias_id',
+      aliasedName,
+      false,
+      type: i1.DriftSqlType.string,
+      $customConstraints: 'NOT NULL',
+    );
+i1.GeneratedColumn<String> _column_40(String aliasedName) =>
+    i1.GeneratedColumn<String>(
+      'track_id',
+      aliasedName,
+      false,
+      type: i1.DriftSqlType.string,
+      $customConstraints: 'NOT NULL',
+    );
 i0.MigrationStepWithVersion migrationSteps({
   required Future<void> Function(i1.Migrator m, Schema2 schema) from1To2,
+  required Future<void> Function(i1.Migrator m, Schema3 schema) from2To3,
 }) {
   return (currentVersion, database) async {
     switch (currentVersion) {
@@ -576,6 +900,11 @@ i0.MigrationStepWithVersion migrationSteps({
         final migrator = i1.Migrator(database, schema);
         await from1To2(migrator, schema);
         return 2;
+      case 2:
+        final schema = Schema3(database: database);
+        final migrator = i1.Migrator(database, schema);
+        await from2To3(migrator, schema);
+        return 3;
       default:
         throw ArgumentError.value('Unknown migration from $currentVersion');
     }
@@ -584,6 +913,7 @@ i0.MigrationStepWithVersion migrationSteps({
 
 i1.OnUpgrade stepByStep({
   required Future<void> Function(i1.Migrator m, Schema2 schema) from1To2,
+  required Future<void> Function(i1.Migrator m, Schema3 schema) from2To3,
 }) => i0.VersionedSchema.stepByStepHelper(
-  step: migrationSteps(from1To2: from1To2),
+  step: migrationSteps(from1To2: from1To2, from2To3: from2To3),
 );
