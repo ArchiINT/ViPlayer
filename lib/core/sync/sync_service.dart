@@ -41,6 +41,15 @@ class PeerSyncState {
   final SyncFailure? failure;
 }
 
+/// A finished sync that brought new tracks (shown as a notice).
+@immutable
+class SyncReport {
+  const SyncReport({required this.peer, required this.filesReceived});
+
+  final String peer;
+  final int filesReceived;
+}
+
 @immutable
 class SyncSnapshot {
   const SyncSnapshot({
@@ -102,6 +111,12 @@ enum SyncFailure {
 
   /// Pairing: the code was wrong (or expired).
   wrongCode,
+
+  /// Something answers at that address, but it is not ViPlayer.
+  notViPlayer,
+
+  /// The address is this device's own.
+  isSelf,
 
   /// Anything else (details go to the log).
   failed,
@@ -175,6 +190,9 @@ class SyncService {
   /// Minimum time between two automatic syncs with the same peer.
   static const autoSyncCooldown = Duration(minutes: 1);
 
+  /// How often paired devices are probed at their last known address.
+  static const probeInterval = Duration(seconds: 10);
+
   /// Wait after a local change before syncing it (batches bursts of edits).
   static const changeDebounce = Duration(seconds: 10);
 
@@ -184,10 +202,15 @@ class SyncService {
   StreamSubscription<Object?>? _changesSub;
   Timer? _changeTimer;
   Timer? _expiryTimer;
+  Timer? _probeTimer;
+  final _reports = StreamController<SyncReport>.broadcast();
+
+  /// Syncs that brought new tracks.
+  Stream<SyncReport> get reports => _reports.stream;
   final _lastAutoSync = <String, DateTime>{};
 
   /// Sync in progress per peer; later requests queue behind it.
-  final _running = <String, Future<void>>{};
+  final _running = <String, Future<int>>{};
 
   final _snapshot = ValueNotifier(const SyncSnapshot());
   ValueListenable<SyncSnapshot> get snapshot => _snapshot;
@@ -228,6 +251,8 @@ class SyncService {
       }
     }
     _expiryTimer = Timer.periodic(const Duration(seconds: 5), (_) => _expire());
+    _probeTimer = Timer.periodic(probeInterval, (_) => _probePaired());
+    unawaited(_probePaired());
 
     // Local changes: sync them to visible peers shortly after.
     var first = true;
@@ -244,6 +269,7 @@ class SyncService {
 
   Future<void> stop() async {
     _changeTimer?.cancel();
+    _probeTimer?.cancel();
     _expiryTimer?.cancel();
     await _changesSub?.cancel();
     await _seenSub?.cancel();
@@ -268,13 +294,82 @@ class SyncService {
     _set(_state.copyWith(nearby: {..._state.nearby, device.id: device}));
     if (isNew) _discovery?.announce(); // answer quickly
 
+    // Remember where a paired device lives, for direct probing.
+    final paired = _state.paired[device.id];
+    if (paired != null &&
+        (paired.host != device.host || paired.port != device.port)) {
+      unawaited(
+        _savePeer(paired.copyWith(host: device.host, port: device.port)),
+      );
+    }
+
     final last = _lastAutoSync[device.id];
     if (_state.paired.containsKey(device.id) &&
         (last == null || DateTime.now().difference(last) > autoSyncCooldown)) {
       _lastAutoSync[device.id] = DateTime.now();
-      unawaited(syncWith(device.id).catchError((_) {}));
+      unawaited(syncWith(device.id).catchError((_) => 0));
     }
   }
+
+  /// A signed request proves the paired device is on the network now —
+  /// even if its beacons never reach us. It also lets us sync back
+  /// (only the side that syncs pulls the other's files).
+  void _seenByRequest(HttpRequest request, PairedPeer peer) {
+    final host = request.connectionInfo?.remoteAddress.address;
+    final port = int.tryParse(request.headers.value('x-vp-port') ?? '');
+    if (host == null || port == null || port == 0) return;
+    _onSeen(
+      NearbyDevice(
+        id: peer.id,
+        name: _state.nearby[peer.id]?.name ?? peer.name,
+        kind: peer.kind,
+        host: host,
+        port: port,
+        lastSeen: DateTime.now(),
+      ),
+    );
+  }
+
+  /// Paired devices are also found by asking their last known address
+  /// directly — broadcast beacons are dropped by many phones and routers.
+  @visibleForTesting
+  Future<void> probeNow() => _probePaired();
+
+  Future<void> _probePaired() async {
+    final now = DateTime.now();
+    for (final peer in _state.paired.values) {
+      final host = peer.host;
+      final port = peer.port;
+      if (host == null || port == null) continue;
+      final seen = _state.nearby[peer.id]?.lastSeen;
+      if (seen != null && now.difference(seen) < probeInterval) continue;
+      try {
+        final info = await _json(
+          'GET',
+          host,
+          port,
+          '/hello',
+          signed: false,
+        ).timeout(const Duration(seconds: 3));
+        if (info['id'] != peer.id) continue; // address now used by another
+        _onSeen(
+          NearbyDevice(
+            id: peer.id,
+            name: info['name'] as String? ?? peer.name,
+            kind: peer.kind,
+            host: host,
+            port: port,
+            lastSeen: DateTime.now(),
+          ),
+        );
+      } on Object {
+        // Not reachable right now.
+      }
+    }
+  }
+
+  @visibleForTesting
+  void forgetNearbyForTest() => _set(_state.copyWith(nearby: {}));
 
   void _expire() {
     final now = DateTime.now();
@@ -288,8 +383,34 @@ class SyncService {
   }
 
   /// Adds a device by address (when broadcast discovery is blocked).
+  ///
+  /// Throws [SyncException]: [SyncFailure.unreachable] (nothing answers),
+  /// [SyncFailure.notViPlayer], [SyncFailure.isSelf].
   Future<NearbyDevice> connect(String host, int port) async {
-    final info = await _json('GET', host, port, '/hello', signed: false);
+    final Map<String, Object?> info;
+    try {
+      info = await _json(
+        'GET',
+        host,
+        port,
+        '/hello',
+        signed: false,
+      ).timeout(const Duration(seconds: 8));
+    } on SocketException {
+      throw const SyncException(SyncFailure.unreachable);
+    } on TimeoutException {
+      throw const SyncException(SyncFailure.unreachable);
+    } on HttpException {
+      throw const SyncException(SyncFailure.notViPlayer);
+    } on FormatException {
+      throw const SyncException(SyncFailure.notViPlayer);
+    }
+    if (info['id'] is! String || info['name'] is! String) {
+      throw const SyncException(SyncFailure.notViPlayer);
+    }
+    if (info['id'] == deviceId) {
+      throw const SyncException(SyncFailure.isSelf);
+    }
     final device = NearbyDevice(
       id: info['id']! as String,
       name: info['name']! as String,
@@ -306,7 +427,7 @@ class SyncService {
   void _syncVisiblePeers() {
     for (final id in _state.nearby.keys) {
       if (_state.paired.containsKey(id)) {
-        unawaited(syncWith(id).catchError((_) {}));
+        unawaited(syncWith(id).catchError((_) => 0));
       }
     }
   }
@@ -340,6 +461,7 @@ class SyncService {
         'id': deviceId,
         'name': _name,
         'kind': kind.name,
+        'port': _server?.port,
         'proof': SyncAuth.proof(secret, 'requester'),
       },
     );
@@ -351,9 +473,11 @@ class SyncService {
       name: device.name,
       kind: device.kind,
       secret: secret,
+      host: device.host,
+      port: device.port,
     );
     await _savePeer(peer);
-    unawaited(syncWith(peerId).catchError((_) {}));
+    unawaited(syncWith(peerId).catchError((_) => 0));
     return peer;
   }
 
@@ -372,20 +496,22 @@ class SyncService {
   ///
   /// If a sync with this peer is already running, waits for it and then
   /// runs again — the caller's changes may have been made after it started.
-  Future<void> syncWith(String peerId) async {
+  /// Returns how many files were received.
+  Future<int> syncWith(String peerId) async {
     final previous = _running[peerId];
-    final next = (previous ?? Future<void>.value())
-        .catchError((Object _) {})
+    final next = (previous ?? Future<int>.value(0))
+        .then<Object?>((_) => null, onError: (Object _) => null)
         .then((_) => _syncOnce(peerId));
     _running[peerId] = next;
     try {
-      await next;
+      return await next;
     } finally {
       _running.removeWhere((id, f) => id == peerId && identical(f, next));
     }
   }
 
-  Future<void> _syncOnce(String peerId) async {
+  Future<int> _syncOnce(String peerId) async {
+    _lastAutoSync[peerId] = DateTime.now();
     _setPeerState(peerId, const PeerSyncState(phase: PeerPhase.syncing));
     try {
       var peer = _state.paired[peerId]!;
@@ -411,10 +537,14 @@ class SyncService {
       }
 
       // 3. Files this device should have.
-      await _fetchFiles(device, peer);
+      final received = await _fetchFiles(device, peer);
 
       await _savePeer(peer.copyWith(lastSync: DateTime.now()));
       _setPeerState(peerId, const PeerSyncState());
+      if (received > 0) {
+        _reports.add(SyncReport(peer: peer.name, filesReceived: received));
+      }
+      return received;
     } catch (e, stack) {
       AppLog.error('sync with $peerId', e, stack);
       _setPeerState(
@@ -453,7 +583,8 @@ class SyncService {
     }
   }
 
-  Future<void> _fetchFiles(NearbyDevice device, PairedPeer peer) async {
+  /// Returns how many files were received.
+  Future<int> _fetchFiles(NearbyDevice device, PairedPeer peer) async {
     final listing = await _jsonList(device, peer, '/files');
     final available = {
       for (final f in listing) f['id']! as String: f['ext']! as String,
@@ -468,7 +599,7 @@ class SyncService {
       for (final id in wanted)
         if (available.containsKey(id)) id,
     ];
-    if (todo.isEmpty) return;
+    if (todo.isEmpty) return 0;
 
     var done = 0;
     _setPeerState(
@@ -492,6 +623,7 @@ class SyncService {
         ),
       );
     }
+    return done;
   }
 
   /// Tracks this device should hold a file for but does not.
@@ -555,6 +687,7 @@ class SyncService {
             response.statusCode = HttpStatus.unauthorized;
             break;
           }
+          _seenByRequest(request, peer);
           await _handleSigned(request, peer);
       }
     } catch (e) {
@@ -759,6 +892,8 @@ class SyncService {
         name: body['name']! as String,
         kind: DeviceKind.fromName(body['kind'] as String?),
         secret: secret,
+        host: request.connectionInfo?.remoteAddress.address,
+        port: (body['port'] as num?)?.toInt(),
       ),
     );
     _set(_state.copyWith(clearPending: true));
@@ -813,6 +948,7 @@ class SyncService {
   ) {
     final time = DateTime.now().millisecondsSinceEpoch;
     request.headers
+      ..set('x-vp-port', '${_server?.port ?? 0}')
       ..set('x-vp-from', deviceId)
       ..set('x-vp-time', '$time')
       ..set('x-vp-sig', SyncAuth.sign(peer.secret, method, path, time));
@@ -1066,6 +1202,7 @@ class SyncService {
 
   Future<void> dispose() async {
     await stop();
+    await _reports.close();
     _snapshot.dispose();
   }
 }

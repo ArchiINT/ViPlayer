@@ -23,6 +23,8 @@ class PairedPeer {
     required this.secret,
     this.cursor = 0,
     this.lastSync,
+    this.host,
+    this.port,
   });
 
   final String id;
@@ -34,15 +36,27 @@ class PairedPeer {
   final int cursor;
   final DateTime? lastSync;
 
-  PairedPeer copyWith({String? name, int? cursor, DateTime? lastSync}) =>
-      PairedPeer(
-        id: id,
-        name: name ?? this.name,
-        kind: kind,
-        secret: secret,
-        cursor: cursor ?? this.cursor,
-        lastSync: lastSync ?? this.lastSync,
-      );
+  /// Last address the peer was reached at — probed directly when broadcast
+  /// discovery does not work on the network (many phones/routers drop it).
+  final String? host;
+  final int? port;
+
+  PairedPeer copyWith({
+    String? name,
+    int? cursor,
+    DateTime? lastSync,
+    String? host,
+    int? port,
+  }) => PairedPeer(
+    id: id,
+    name: name ?? this.name,
+    kind: kind,
+    secret: secret,
+    cursor: cursor ?? this.cursor,
+    lastSync: lastSync ?? this.lastSync,
+    host: host ?? this.host,
+    port: port ?? this.port,
+  );
 
   Map<String, Object?> toJson() => {
     'id': id,
@@ -51,6 +65,8 @@ class PairedPeer {
     'secret': secret,
     'cursor': cursor,
     'lastSync': lastSync?.millisecondsSinceEpoch,
+    'host': host,
+    'port': port,
   };
 
   factory PairedPeer.fromJson(Map<String, Object?> j) => PairedPeer(
@@ -63,6 +79,8 @@ class PairedPeer {
       final num ms => DateTime.fromMillisecondsSinceEpoch(ms.toInt()),
       _ => null,
     },
+    host: j['host'] as String?,
+    port: (j['port'] as num?)?.toInt(),
   );
 }
 

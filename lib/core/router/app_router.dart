@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/downloads/downloads_screen.dart';
 import '../../features/library/library_screen.dart';
+import '../../features/notices/app_notices.dart';
 import '../../features/player/mini_player.dart';
 import '../../features/player/now_playing_screen.dart';
 import '../../features/playlists/playlist_screen.dart';
@@ -73,7 +74,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // Each tab keeps its own navigation stack and scroll position.
       StatefulShellRoute.indexedStack(
         builder: (context, state, shell) => PairingCodeListener(
-          child: AppShell(shell: shell, miniPlayer: const MiniPlayer()),
+          child: AppNotices(
+            child: AppShell(shell: shell, miniPlayer: const MiniPlayer()),
+          ),
         ),
         branches: [
           _branch(

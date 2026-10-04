@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -186,16 +187,54 @@ class SyncScreen extends ConsumerWidget {
       hint: l10n.syncConnectHint,
       action: l10n.connect,
     );
-    final match = RegExp(r'^\s*([\d.]+):(\d+)\s*$').firstMatch(text ?? '');
-    if (match == null) return;
+    if (text == null || text.trim().isEmpty) return;
+    final address = parseDeviceAddress(text);
+    if (address == null) {
+      _notify(messenger, l10n.syncBadAddress);
+      return;
+    }
+    final (host, port) = address;
+    final shown = '$host:$port';
+    _notify(messenger, l10n.syncConnecting(shown));
+    final service = ref.read(syncServiceProvider);
     try {
-      await ref
-          .read(syncServiceProvider)
-          .connect(match.group(1)!, int.parse(match.group(2)!));
-    } on Exception {
-      messenger.showSnackBar(SnackBar(content: Text(l10n.syncConnectFailed)));
+      final device = await service.connect(host, port);
+      final paired = service.snapshot.value.paired.containsKey(device.id);
+      _notify(
+        messenger,
+        paired ? l10n.syncConnected(device.name) : l10n.syncFound(device.name),
+      );
+      if (paired) unawaited(service.syncWith(device.id).catchError((_) => 0));
+    } on SyncException catch (e) {
+      _notify(
+        messenger,
+        e.reason == SyncFailure.unreachable
+            ? l10n.syncErrNoAnswer(shown)
+            : l10n.syncFailure(e.reason),
+      );
     }
   }
+}
+
+/// Replaces whatever notice is showing (so "Connecting…" does not linger).
+void _notify(ScaffoldMessengerState messenger, String text) => messenger
+  ..hideCurrentSnackBar()
+  ..showSnackBar(SnackBar(content: Text(text)));
+
+/// "192.168.1.20" or "192.168.1.20:48126" → host and port; null if invalid.
+@visibleForTesting
+(String, int)? parseDeviceAddress(String text) {
+  final match = RegExp(
+    r'^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})(?::(\d{1,5}))?$',
+  ).firstMatch(text.trim());
+  if (match == null) return null;
+  final octets = [for (var i = 1; i <= 4; i++) int.parse(match.group(i)!)];
+  if (octets.any((o) => o > 255)) return null;
+  final port = match.group(5) == null
+      ? SyncService.defaultHttpPort
+      : int.parse(match.group(5)!);
+  if (port < 1 || port > 65535) return null;
+  return (octets.join('.'), port);
 }
 
 class _Hint extends StatelessWidget {
@@ -268,9 +307,7 @@ class _PairedTile extends ConsumerWidget {
           else
             IconButton(
               tooltip: l10n.syncNow,
-              onPressed: online
-                  ? () => service.syncWith(peer.id).catchError((_) {})
-                  : null,
+              onPressed: online ? () => _syncNow(context, service) : null,
               icon: const Icon(Icons.sync_rounded),
             ),
           PopupMenuButton<void>(
@@ -284,6 +321,25 @@ class _PairedTile extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  /// Manual sync: always say how it went (automatic ones stay quiet
+  /// unless tracks arrive — see AppNotices).
+  Future<void> _syncNow(BuildContext context, SyncService service) async {
+    final l10n = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final received = await service.syncWith(peer.id);
+      // Received tracks are announced by AppNotices.
+      if (received == 0) _notify(messenger, l10n.syncUpToDate(peer.name));
+    } on Object catch (e) {
+      _notify(
+        messenger,
+        l10n.syncFailure(
+          e is SyncException ? e.reason : SyncFailure.unreachable,
+        ),
+      );
+    }
   }
 }
 

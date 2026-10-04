@@ -320,7 +320,7 @@
   },
   "syncWrongCode": "Wrong code. Try again.",
   "syncConnectByIp": "Connect by address",
-  "syncConnectHint": "IP and port, e.g. 192.168.1.20:41234",
+  "syncConnectHint": "IP address, e.g. 192.168.1.20 (port optional)",
   "syncConnectFailed": "Could not reach that device",
   "syncThisAddress": "This device: {address}",
   "@syncThisAddress": {
@@ -421,5 +421,98 @@
         "type": "int"
       }
     }
-  }
+  },
+  "syncBadAddress": "That is not an address. Example: 192.168.1.20 or 192.168.1.20:48126",
+  "syncConnecting": "Connecting to {address}…",
+  "@syncConnecting": {
+    "placeholders": {
+      "address": {
+        "type": "String"
+      }
+    }
+  },
+  "syncFound": "Found {name}. Tap “Pair” next to it.",
+  "@syncFound": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "syncConnected": "Connected to {name}",
+  "@syncConnected": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "syncErrNoAnswer": "Nothing answers at {address}. Check the address (it is shown on the other device) and that ViPlayer is open there.",
+  "@syncErrNoAnswer": {
+    "placeholders": {
+      "address": {
+        "type": "String"
+      }
+    }
+  },
+  "syncErrNotViPlayer": "Something answers at that address, but it is not ViPlayer. Check the address and port.",
+  "syncErrSelf": "That is this device's own address. Enter the address shown on the other device.",
+  "syncUpToDate": "{name}: everything is up to date",
+  "@syncUpToDate": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "syncReceived": "{count, plural, =1{1 track} other{{count} tracks}} received from {name}",
+  "@syncReceived": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "noticeDownloaded": "Downloaded: {title}",
+  "@noticeDownloaded": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "noticeDownloadedMany": "Downloaded {count, plural, =1{1 track} other{{count} tracks}}",
+  "@noticeDownloadedMany": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noticeDownloadFailed": "Couldn't download {title}: {reason}",
+  "@noticeDownloadFailed": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "noticeDownloadsMixed": "Downloaded {done}, failed {failed}. Details in Downloads.",
+  "@noticeDownloadsMixed": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
+  "noticeShow": "Show"
 }

@@ -22,11 +22,20 @@ final trackSortProvider = NotifierProvider<TrackSortController, TrackSort>(
   TrackSortController.new,
 );
 
+/// The library sort, remembered across restarts.
 class TrackSortController extends Notifier<TrackSort> {
-  @override
-  TrackSort build() => TrackSort.title;
+  static const _key = 'library.sort';
 
-  void set(TrackSort sort) => state = sort;
+  @override
+  TrackSort build() {
+    final saved = ref.read(sharedPreferencesProvider).getString(_key);
+    return TrackSort.values.asNameMap()[saved] ?? TrackSort.title;
+  }
+
+  Future<void> set(TrackSort sort) async {
+    state = sort;
+    await ref.read(sharedPreferencesProvider).setString(_key, sort.name);
+  }
 }
 
 /// Sorted once per library change or sort change, not on every rebuild.

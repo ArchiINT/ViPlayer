@@ -124,6 +124,36 @@ void main() {
     expect(pc.sync.snapshot.value.pendingCode, isNull);
   });
 
+  test('connect by address explains what went wrong', () async {
+    Future<SyncFailure?> failure(String host, int port) async {
+      try {
+        await phone.sync.connect(host, port);
+        return null;
+      } on SyncException catch (e) {
+        return e.reason;
+      }
+    }
+
+    // Nothing listens there.
+    final closed = await ServerSocket.bind('127.0.0.1', 0);
+    final freePort = closed.port;
+    await closed.close();
+    expect(await failure('127.0.0.1', freePort), SyncFailure.unreachable);
+
+    // Some other HTTP server.
+    final other = await HttpServer.bind('127.0.0.1', 0);
+    other.listen(
+      (r) => r.response
+        ..write('<html>router</html>')
+        ..close(),
+    );
+    expect(await failure('127.0.0.1', other.port), SyncFailure.notViPlayer);
+    await other.close(force: true);
+
+    expect(await failure('127.0.0.1', phone.sync.port!), SyncFailure.isSelf);
+    expect(await failure('127.0.0.1', pc.sync.port!), isNull);
+  });
+
   test('unpaired requests are rejected', () async {
     final client = HttpClient();
     final request = await client.get(
@@ -158,6 +188,36 @@ void main() {
     expect(await phone.titles(), ['Чёрный лёд']);
     final phoneTracks = await phone.db.select(phone.db.tracks).get();
     expect(phoneTracks.map((t) => t.title), contains('Neon Rain'));
+  });
+
+  test('the PC syncs back when only the phone can reach it', () async {
+    // The phone's broadcasts never reach the PC (common with Wi-Fi):
+    // the PC learns about the phone from its signed requests.
+    await phone.addMusic(['test/fixtures/audio/black_ice.mp3']);
+    await phone.sync.connect('127.0.0.1', pc.sync.port!);
+    await phone.sync.requestPairing('pc');
+    final code = pc.sync.snapshot.value.pendingCode!.code;
+    await phone.sync.confirmPairing('pc', code);
+    await phone.sync.syncWith('pc');
+
+    final file = File(p.join(pc.music, 'Кибер Волна - Чёрный лёд.mp3'));
+    for (var i = 0; i < 100 && !file.existsSync(); i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+    expect(file.existsSync(), isTrue);
+    expect(pc.sync.snapshot.value.nearby.keys, ['phone']);
+  });
+
+  test('paired devices are found again at their last address', () async {
+    await pair();
+    final peer = pc.sync.snapshot.value.paired['phone']!;
+    expect(peer.host, '127.0.0.1');
+    expect(peer.port, phone.sync.port);
+
+    pc.sync.forgetNearbyForTest();
+    expect(pc.sync.snapshot.value.nearby, isEmpty);
+    await pc.sync.probeNow();
+    expect(pc.sync.snapshot.value.nearby.keys, ['phone']);
   });
 
   test('the phone gets liked tracks from the PC', () async {

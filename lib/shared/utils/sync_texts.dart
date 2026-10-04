@@ -7,6 +7,8 @@ extension SyncTexts on AppLocalizations {
     SyncFailure.notOnNetwork => syncErrNotOnNetwork,
     SyncFailure.refused => syncErrRefused,
     SyncFailure.wrongCode => syncWrongCode,
+    SyncFailure.notViPlayer => syncErrNotViPlayer,
+    SyncFailure.isSelf => syncErrSelf,
     SyncFailure.failed => syncErrFailed,
   };
 }

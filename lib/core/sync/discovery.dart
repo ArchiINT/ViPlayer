@@ -37,7 +37,8 @@ class Discovery {
     int? targetPort,
     InternetAddress? targetAddress,
   }) : _targetPort = targetPort ?? port,
-       _target = targetAddress ?? InternetAddress('255.255.255.255');
+       _target = targetAddress ?? InternetAddress('255.255.255.255'),
+       _subnets = targetAddress == null;
 
   /// Not Finanz's port: both apps may run on the same machine.
   static const defaultPort = 48125;
@@ -57,9 +58,15 @@ class Discovery {
   final int _targetPort;
   final InternetAddress _target;
 
+  /// Also beacon to each local subnet's broadcast address (x.y.z.255):
+  /// some phones and routers drop 255.255.255.255 but pass these.
+  final bool _subnets;
+  List<InternetAddress> _subnetTargets = const [];
+
   RawDatagramSocket? _socket;
   Timer? _beacon;
   int? _httpPort;
+  int _announces = 0;
   final _seen = StreamController<NearbyDevice>.broadcast();
 
   /// Every beacon heard from another device.
@@ -76,7 +83,27 @@ class Discovery {
       ..broadcastEnabled = true
       ..listen(_onEvent);
     _beacon = Timer.periodic(_interval, (_) => announce());
+    await _refreshSubnets();
     announce();
+  }
+
+  Future<void> _refreshSubnets() async {
+    if (!_subnets) return;
+    try {
+      final interfaces = await NetworkInterface.list(
+        type: InternetAddressType.IPv4,
+      );
+      _subnetTargets = {
+        for (final i in interfaces)
+          for (final a in i.addresses)
+            if (!a.isLoopback && !a.isLinkLocal)
+              InternetAddress(
+                '${a.address.substring(0, a.address.lastIndexOf('.'))}.255',
+              ),
+      }.toList();
+    } on Object {
+      _subnetTargets = const [];
+    }
   }
 
   void announce() {
@@ -85,12 +112,16 @@ class Discovery {
     final message = utf8.encode(
       '$_magic|$deviceId|$_httpPort|${kind.name}|${Uri.encodeComponent(name)}',
     );
-    try {
-      socket.send(message, _target, _targetPort);
-    } on SocketException {
-      // No network / broadcast blocked: others may still hear nothing from
-      // us, but we keep listening.
+    for (final target in [_target, ..._subnetTargets]) {
+      try {
+        socket.send(message, target, _targetPort);
+      } on SocketException {
+        // No network / broadcast blocked: others may still hear nothing
+        // from us, but we keep listening.
+      }
     }
+    // Wi-Fi may change while running (cheap, so just redo it sometimes).
+    if (++_announces % 10 == 0) unawaited(_refreshSubnets());
   }
 
   void _onEvent(RawSocketEvent event) {
