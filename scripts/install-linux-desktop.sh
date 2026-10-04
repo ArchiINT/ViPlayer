@@ -17,7 +17,7 @@ require_flutter
 INSTALL_DIR="$HOME/.local/lib/viplayer"
 BIN_LINK="$HOME/.local/bin/viplayer"
 DESKTOP_FILE="$HOME/.local/share/applications/viplayer.desktop"
-ICON_DIR="$HOME/.local/share/icons/hicolor/256x256/apps"
+ICON_DIR="$HOME/.local/share/icons/hicolor/512x512/apps"
 ICON_SRC="$PROJECT_DIR/assets/icon/icon.png"
 [ -f "$ICON_SRC" ] || ICON_SRC="$PROJECT_DIR/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png"
 

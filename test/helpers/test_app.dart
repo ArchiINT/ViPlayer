@@ -126,6 +126,7 @@ class TestApp {
     String artist = '',
     String album = '',
     int? trackNumber,
+    int durationMs = 185000,
   }) async {
     await db
         .into(db.tracks)
@@ -138,7 +139,7 @@ class TestApp {
             artist: Value(artist),
             album: Value(album),
             trackNumber: Value(trackNumber),
-            durationMs: const Value(185000),
+            durationMs: Value(durationMs),
             addedAt: 1,
           ),
         );

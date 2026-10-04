@@ -145,3 +145,15 @@ class TrackAliases extends Table {
   @override
   Set<Column> get primaryKey => {aliasId};
 }
+
+/// LOCAL: tracks the user deleted from this device on purpose. Sync never
+/// brings their files back here; the mark clears if a file for the track
+/// shows up again (copied back by hand, downloaded again). Added in v4.
+@DataClassName('ExcludedTrackRow')
+class ExcludedTracks extends Table {
+  TextColumn get trackId => text()();
+  IntColumn get excludedAt => integer()();
+
+  @override
+  Set<Column> get primaryKey => {trackId};
+}

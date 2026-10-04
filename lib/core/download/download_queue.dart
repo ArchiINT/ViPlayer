@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../platform/app_log.dart';
 import 'download_models.dart';
 import 'download_service.dart';
 
@@ -142,8 +143,8 @@ class DownloadQueue {
         job.id,
         (j) => j.copyWith(status: status, failure: e.reason, error: e.detail),
       );
-    } catch (e) {
-      debugPrint('Download failed: $e');
+    } catch (e, stack) {
+      AppLog.error('download ${job.candidate}', e, stack);
       _update(
         job.id,
         (j) => j.copyWith(

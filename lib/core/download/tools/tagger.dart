@@ -6,6 +6,7 @@ import 'package:audio_metadata_reader/audio_metadata_reader.dart';
 import 'package:path/path.dart' as p;
 
 import '../download_models.dart';
+import 'id3_writer.dart';
 
 /// Tags to write into a downloaded file.
 class TrackTags {
@@ -191,11 +192,19 @@ class FfmpegTagger implements Tagger {
 }
 
 /// Pure-Dart tagger for MP3 / M4A (Android, where ffmpeg is not bundled).
+/// MP3 goes through [Id3Writer]; other formats through audio_metadata_reader.
 class DartTagger implements Tagger {
   const DartTagger();
 
   @override
   Future<void> write(File file, TrackTags tags) async {
+    if (p.extension(file.path).toLowerCase() == '.mp3') {
+      try {
+        return await Id3Writer.write(file, tags);
+      } on FileSystemException catch (e) {
+        throw DownloadException(DownloadFailure.failed, 'tagging failed: $e');
+      }
+    }
     try {
       updateMetadata(file, (metadata) {
         metadata.setTitle(tags.title);

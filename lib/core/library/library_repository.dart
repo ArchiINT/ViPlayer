@@ -57,6 +57,32 @@ class LibraryRepository {
     return rows.isNotEmpty;
   }
 
+  /// Local files of [trackId] (usually one).
+  Future<List<String>> filesOf(String trackId) async => [
+    for (final f in await (_db.select(
+      _db.trackFiles,
+    )..where((f) => f.trackId.equals(trackId))).get())
+      f.path,
+  ];
+
+  /// Forgets the local files of [trackId] (after they were deleted from
+  /// disk) and marks the track as deleted here on purpose, so sync does not
+  /// bring it back. Likes, playlists and history are kept — other devices
+  /// may still have the song.
+  Future<void> forgetLocalFiles(String trackId) => _db.transaction(() async {
+    await (_db.delete(
+      _db.trackFiles,
+    )..where((f) => f.trackId.equals(trackId))).go();
+    await _db
+        .into(_db.excludedTracks)
+        .insertOnConflictUpdate(
+          ExcludedTracksCompanion.insert(
+            trackId: trackId,
+            excludedAt: DateTime.now().millisecondsSinceEpoch,
+          ),
+        );
+  });
+
   /// Stores the real length measured by the player.
   Future<void> updateDuration(String trackId, int durationMs) =>
       (_db.update(_db.tracks)..where((t) => t.id.equals(trackId))).write(

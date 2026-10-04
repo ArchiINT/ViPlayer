@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
@@ -187,6 +188,55 @@ void main() {
       await (db.select(db.tracks)..where((t) => t.deleted.equals(true))).get(),
       isEmpty,
     );
+  });
+
+  test(
+    'changed tags update the same track (likes and playlists stay)',
+    () async {
+      await scanner.scan();
+      final before = (await repo.watchTracks().first).firstWhere(
+        (t) => t.title == 'Neon Rain',
+      );
+
+      // Re-tag the file (as a tag editor would), keep the audio.
+      final path = p.join(music, 'neon_rain.m4a');
+      final retagged = p.join(temp.path, 'retagged.m4a');
+      final r = await Process.run('ffmpeg', [
+        '-v',
+        'error',
+        '-y',
+        '-i',
+        path,
+        '-map',
+        '0',
+        '-c',
+        'copy',
+        '-metadata',
+        'title=Neon Rain (2077 Mix)',
+        retagged,
+      ]);
+      if (r.exitCode != 0) return markTestSkipped('ffmpeg not available');
+      await File(retagged).copy(path);
+
+      await scanner.scan();
+
+      final after = (await repo.watchTracks().first).firstWhere(
+        (t) => t.title == 'Neon Rain (2077 Mix)',
+      );
+      expect(after.id, before.id);
+      expect(await repo.watchTracks().first, hasLength(4));
+    },
+  );
+
+  test('a new reader version re-reads every file once', () async {
+    await scanner.scan();
+    await (db.update(db.syncState)
+          ..where((s) => s.key.equals('scanner_reader_version')))
+        .write(const SyncStateCompanion(value: Value(1)));
+
+    final again = await scanner.scan();
+    expect(again.updated, 4);
+    expect((await scanner.scan()).updated, 0);
   });
 }
 

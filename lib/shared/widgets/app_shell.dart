@@ -84,11 +84,6 @@ class _AppShellState extends ConsumerState<AppShell> {
         l10n.navLibrary,
       ),
       (Icons.search_rounded, Icons.search_rounded, l10n.navSearch),
-      (
-        Icons.queue_music_outlined,
-        Icons.queue_music_rounded,
-        l10n.navPlaylists,
-      ),
       (Icons.download_outlined, Icons.download_rounded, l10n.navDownloads),
       (Icons.settings_outlined, Icons.settings_rounded, l10n.navSettings),
     ];

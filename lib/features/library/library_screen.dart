@@ -5,15 +5,17 @@ import 'package:go_router/go_router.dart';
 import '../../core/library/library_models.dart';
 import '../../core/library/library_providers.dart';
 import '../../core/router/app_router.dart';
+import '../../core/settings/settings_providers.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/actions/playback.dart';
 import '../../shared/utils/format.dart';
-import '../../shared/widgets/album_card.dart';
-import '../../shared/widgets/artist_tile.dart';
 import '../../shared/widgets/empty_state.dart';
 import '../../shared/widgets/track_tile.dart';
+import 'tabs/liked_tab.dart';
+import 'tabs/long_tab.dart';
+import 'tabs/playlists_tab.dart';
 import 'widgets/scan_status_bar.dart';
 
 final trackSortProvider = NotifierProvider<TrackSortController, TrackSort>(
@@ -28,10 +30,12 @@ class TrackSortController extends Notifier<TrackSort> {
 }
 
 /// Sorted once per library change or sort change, not on every rebuild.
-final _sortedTracksProvider = Provider<List<LibraryTrack>>((ref) {
-  final index = ref.watch(libraryIndexProvider).value ?? LibraryIndex.empty;
-  return LibraryIndex.sortTracks(index.tracks, ref.watch(trackSortProvider));
-});
+final _sortedTracksProvider = Provider<List<LibraryTrack>>(
+  (ref) => LibraryIndex.sortTracks(
+    ref.watch(musicTracksProvider),
+    ref.watch(trackSortProvider),
+  ),
+);
 
 class LibraryScreen extends ConsumerWidget {
   const LibraryScreen({super.key});
@@ -42,8 +46,14 @@ class LibraryScreen extends ConsumerWidget {
     final index = ref.watch(libraryIndexProvider);
     final scanning = ref.watch(scanControllerProvider.select((s) => s.running));
 
+    final showLong = ref.watch(
+      settingsProvider.select((s) => s.longAudioMinutes > 0),
+    );
+
     return DefaultTabController(
-      length: 3,
+      // Rebuilt when the Books & podcasts tab is switched on or off.
+      key: ValueKey(showLong),
+      length: showLong ? 4 : 3,
       child: Scaffold(
         appBar: AppBar(
           title: Text(l10n.navLibrary),
@@ -64,8 +74,9 @@ class LibraryScreen extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
             tabs: [
               Tab(text: l10n.libraryTracks),
-              Tab(text: l10n.libraryAlbums),
-              Tab(text: l10n.libraryArtists),
+              Tab(text: l10n.playlistsLiked),
+              Tab(text: l10n.navPlaylists),
+              if (showLong) Tab(text: l10n.tabLong),
             ],
           ),
         ),
@@ -80,11 +91,12 @@ class LibraryScreen extends ConsumerWidget {
                 AsyncData(:final value) => TabBarView(
                   children: [
                     _KeepAlive(child: _TracksTab(index: value)),
-                    _KeepAlive(child: _AlbumsTab(albums: value.albums)),
-                    _KeepAlive(child: _ArtistsTab(artists: value.artists)),
+                    const _KeepAlive(child: LikedTab()),
+                    const _KeepAlive(child: PlaylistsTab()),
+                    if (showLong) const _KeepAlive(child: LongTab()),
                   ],
                 ),
-                AsyncError(:final error) => Center(child: Text('$error')),
+                AsyncError() => Center(child: Text(l10n.libraryLoadFailed)),
                 _ => const SizedBox.shrink(),
               },
             ),
@@ -162,7 +174,7 @@ class _TracksTab extends ConsumerWidget {
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
             child: Text(
               '${l10n.trackCount(tracks.length)} · '
-              '${formatTotalDuration(l10n, index.totalDurationMs)}',
+              '${formatTotalDuration(l10n, tracks.fold(0, (sum, t) => sum + t.durationMs))}',
               style: const TextStyle(
                 fontFamily: AppFonts.mono,
                 fontSize: 12,
@@ -183,47 +195,6 @@ class _TracksTab extends ConsumerWidget {
         ),
         const SliverPadding(padding: EdgeInsets.only(bottom: 24)),
       ],
-    );
-  }
-}
-
-class _AlbumsTab extends StatelessWidget {
-  const _AlbumsTab({required this.albums});
-
-  final List<Album> albums;
-
-  @override
-  Widget build(BuildContext context) {
-    return GridView.builder(
-      padding: const EdgeInsets.all(10),
-      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 200,
-        childAspectRatio: 0.76,
-      ),
-      itemCount: albums.length,
-      itemBuilder: (context, i) => AlbumCard(
-        album: albums[i],
-        onTap: () => openAlbum(context, albums[i].key),
-      ),
-    );
-  }
-}
-
-class _ArtistsTab extends StatelessWidget {
-  const _ArtistsTab({required this.artists});
-
-  final List<Artist> artists;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      itemExtent: ArtistTile.extent,
-      itemCount: artists.length,
-      itemBuilder: (context, i) => ArtistTile(
-        artist: artists[i],
-        onTap: () => openArtist(context, artists[i].name),
-      ),
     );
   }
 }

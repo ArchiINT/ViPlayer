@@ -1,9 +1,12 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:audio_metadata_reader/audio_metadata_reader.dart';
 import 'package:path/path.dart' as p;
 
+import '../download/metadata_cleanup.dart';
 import 'cover_store.dart';
+import 'mp4_tags.dart';
 
 // Blocking file-system work for the library scanner. Everything here is
 // synchronous and meant to run inside a background isolate (Isolate.run) so
@@ -166,44 +169,118 @@ ScannedFile _readOne(
   CoverStore covers,
   String? Function(String dir) folderCover,
 ) {
-  final fallbackTitle = p.basenameWithoutExtension(file.path);
-  AudioMetadata? tags;
-  try {
-    tags = readMetadata(File(file.path), getImage: true);
-  } catch (_) {
-    // Corrupt or unsupported tags: keep the file, use the file name.
-    tags = null;
-  }
+  final tags = _readTags(File(file.path));
 
   String? coverId;
-  final pictures = tags?.pictures ?? const <Picture>[];
-  if (pictures.isNotEmpty) {
-    final front = pictures.firstWhere(
-      (pic) => pic.pictureType == PictureType.coverFront,
-      orElse: () => pictures.first,
-    );
+  if (tags.cover case (final bytes, final mime)?) {
     try {
-      coverId = covers.save(front.bytes, mimeType: front.mimetype);
+      coverId = covers.save(bytes, mimeType: mime);
     } on FileSystemException {
       coverId = null;
     }
   }
   coverId ??= folderCover(p.dirname(file.path));
 
+  // No title tag: "Artist - Title.mp3" file names are common.
+  final fromName = MetadataCleanup.fromUpload(
+    title: p.basenameWithoutExtension(file.path),
+    uploader: '',
+  );
+  final artist = tags.artist ?? (tags.title == null ? fromName.artist : '');
+  final title = tags.title == null
+      ? fromName.title
+      : _tidyTitle(tags.title!, artist);
+
   return ScannedFile(
     file: file,
-    title: _clean(tags?.title) ?? fallbackTitle,
-    artist: _clean(tags?.artist) ?? '',
-    album: _clean(tags?.album) ?? '',
-    albumArtist: _clean(tags?.albumArtist),
-    durationMs: tags?.duration?.inMilliseconds ?? 0,
-    trackNumber: tags?.trackNumber,
-    discNumber: tags?.discNumber,
-    year: tags?.year?.year,
-    genre: _clean(tags?.genres.firstOrNull),
+    title: title.isEmpty ? p.basenameWithoutExtension(file.path) : title,
+    artist: artist,
+    album: tags.album ?? '',
+    albumArtist: tags.albumArtist,
+    durationMs: tags.duration?.inMilliseconds ?? 0,
+    trackNumber: tags.trackNumber,
+    discNumber: tags.discNumber,
+    year: tags.year,
+    genre: tags.genre,
     coverId: coverId,
   );
 }
+
+/// "Artist - Song (Official Music Video)" tagged with artist "Artist"
+/// (typical for files from YouTube bots) becomes "Song".
+String _tidyTitle(String title, String artist) {
+  var t = title;
+  if (artist.isNotEmpty) {
+    final prefix = RegExp(
+      '^${RegExp.escape(artist)}\\s+[-–—]\\s+',
+      caseSensitive: false,
+    );
+    t = t.replaceFirst(prefix, '');
+  }
+  final cleaned = MetadataCleanup.stripNoise(t);
+  return cleaned.isEmpty ? title : cleaned;
+}
+
+/// Tags from whichever reader can handle the file.
+({
+  String? title,
+  String? artist,
+  String? album,
+  String? albumArtist,
+  String? genre,
+  int? year,
+  int? trackNumber,
+  int? discNumber,
+  Duration? duration,
+  (Uint8List, String?)? cover,
+})
+_readTags(File file) {
+  try {
+    final m = readMetadata(file, getImage: true);
+    final pictures = m.pictures;
+    final front = pictures.isEmpty
+        ? null
+        : pictures.firstWhere(
+            (pic) => pic.pictureType == PictureType.coverFront,
+            orElse: () => pictures.first,
+          );
+    return (
+      title: _clean(m.title),
+      artist: _clean(m.artist),
+      album: _clean(m.album),
+      albumArtist: _clean(m.albumArtist),
+      genre: _clean(m.genres.firstOrNull),
+      year: _plausibleYear(m.year?.year),
+      trackNumber: m.trackNumber,
+      discNumber: m.discNumber,
+      duration: m.duration,
+      cover: front == null ? null : (front.bytes, front.mimetype),
+    );
+  } catch (_) {
+    // The tag library gives up on some valid files (see Mp4Tags); MP4 has a
+    // fallback reader, anything else keeps the file with name-based info.
+    final ext = p.extension(file.path).toLowerCase();
+    final mp4 = (ext == '.m4a' || ext == '.mp4' || ext == '.aac')
+        ? Mp4Tags.read(file)
+        : null;
+    return (
+      title: _clean(mp4?.title),
+      artist: _clean(mp4?.artist),
+      album: _clean(mp4?.album),
+      albumArtist: _clean(mp4?.albumArtist),
+      genre: _clean(mp4?.genre),
+      year: _plausibleYear(mp4?.year),
+      trackNumber: mp4?.trackNumber,
+      discNumber: mp4?.discNumber,
+      duration: mp4?.duration,
+      cover: mp4?.cover == null ? null : (mp4!.cover!, null),
+    );
+  }
+}
+
+/// Tags sometimes hold full dates the library misreads into absurd years.
+int? _plausibleYear(int? year) =>
+    year != null && year >= 1000 && year <= 2100 ? year : null;
 
 /// Trims and drops empty strings and stray NUL terminators found in tags.
 String? _clean(String? value) {

@@ -24,6 +24,7 @@ final appDatabaseProvider = Provider<AppDatabase>((ref) {
     TrackFiles,
     SyncState,
     TrackAliases,
+    ExcludedTracks,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -34,7 +35,7 @@ class AppDatabase extends _$AppDatabase {
   /// Schema snapshots live in `drift_schemas/` and are verified by tests —
   /// run `scripts/db-schema.sh` after changing tables.dart.
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -64,6 +65,9 @@ class AppDatabase extends _$AppDatabase {
         for (final table in syncedTableNames) {
           await customStatement('UPDATE $table SET updated_at = updated_at');
         }
+      },
+      from3To4: (m, schema) async {
+        await m.createTable(schema.excludedTracks);
       },
     ),
     beforeOpen: (details) async {

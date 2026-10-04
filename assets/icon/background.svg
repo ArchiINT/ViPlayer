@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- ViPlayer icon background: deep canvas with two soft light pools,
+       the same "aura" the app draws behind its glass UI. -->
+  <defs>
+    <radialGradient id="sky" cx="0.18" cy="0.12" r="0.75">
+      <stop offset="0" stop-color="#7DB8FF" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#7DB8FF" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="lavender" cx="0.9" cy="0.95" r="0.75">
+      <stop offset="0" stop-color="#B59CFF" stop-opacity="0.75"/>
+      <stop offset="1" stop-color="#B59CFF" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="#0B0C10"/>
+  <rect width="1024" height="1024" fill="url(#sky)"/>
+  <rect width="1024" height="1024" fill="url(#lavender)"/>
+</svg>

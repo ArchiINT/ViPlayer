@@ -1,8 +1,8 @@
 import 'dart:async';
 
 import 'package:audio_service/audio_service.dart';
-import 'package:flutter/foundation.dart';
 
+import '../platform/app_log.dart';
 import 'audio_backend.dart';
 import 'player_service.dart';
 
@@ -17,6 +17,9 @@ class ViAudioHandler extends BaseAudioHandler with SeekHandler {
 
   final PlayerService _player;
   String? _lastTrackId;
+
+  static const _shuffleAction = 'viplayer.shuffle';
+  static const _repeatAction = 'viplayer.repeat';
 
   /// Starts the system integration. Never fatal: without it (no D-Bus
   /// session, unsupported platform) the app still plays music.
@@ -33,7 +36,7 @@ class ViAudioHandler extends BaseAudioHandler with SeekHandler {
         ),
       );
     } catch (error) {
-      debugPrint('System media controls unavailable: $error');
+      AppLog.error('system media controls unavailable', error);
     }
   }
 
@@ -68,10 +71,28 @@ class ViAudioHandler extends BaseAudioHandler with SeekHandler {
 
     playbackState.add(
       PlaybackState(
+        // Compact view (lock screen): previous, play/pause, next; Android
+        // 13+ adds the two custom controls (shuffle, repeat) beside them.
         controls: [
           MediaControl.skipToPrevious,
           if (s.playing) MediaControl.pause else MediaControl.play,
           MediaControl.skipToNext,
+          MediaControl.custom(
+            androidIcon: s.shuffle
+                ? 'drawable/vp_shuffle_on'
+                : 'drawable/vp_shuffle_off',
+            label: 'Shuffle',
+            name: _shuffleAction,
+          ),
+          MediaControl.custom(
+            androidIcon: switch (s.repeat) {
+              PlaybackRepeat.off => 'drawable/vp_repeat_off',
+              PlaybackRepeat.all => 'drawable/vp_repeat_all',
+              PlaybackRepeat.one => 'drawable/vp_repeat_one',
+            },
+            label: 'Repeat',
+            name: _repeatAction,
+          ),
         ],
         systemActions: const {MediaAction.seek},
         androidCompactActionIndices: const [0, 1, 2],
@@ -91,6 +112,19 @@ class ViAudioHandler extends BaseAudioHandler with SeekHandler {
         },
       ),
     );
+  }
+
+  @override
+  Future<dynamic> customAction(
+    String name, [
+    Map<String, dynamic>? extras,
+  ]) async {
+    switch (name) {
+      case _shuffleAction:
+        await _player.toggleShuffle();
+      case _repeatAction:
+        await _player.cycleRepeat();
+    }
   }
 
   @override

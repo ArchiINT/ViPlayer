@@ -43,6 +43,14 @@ void main() {
       );
     });
 
+    test('site watermarks are noise', () {
+      expect(
+        MetadataCleanup.stripNoise('The Perfect Girl [mp3uk.net]'),
+        'The Perfect Girl',
+      );
+      expect(MetadataCleanup.stripNoise('Song (muzofond.fm)'), 'Song');
+    });
+
     test('Topic channels give the artist', () {
       expect(
         MetadataCleanup.fromUpload(

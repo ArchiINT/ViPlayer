@@ -70,6 +70,11 @@ class LibraryScanner {
   final MediaStore mediaStore;
 
   static const _batchSize = 48;
+
+  /// Bump when tag reading changes (new fallbacks, cleanup rules): the next
+  /// scan then re-reads every file once and updates tracks in place.
+  static const readerVersion = 2;
+  static const _readerVersionKey = 'scanner_reader_version';
   static const _uuid = Uuid();
 
   Future<ScanResult> scan({
@@ -98,10 +103,12 @@ class LibraryScanner {
     final known = {
       for (final row in await _db.select(_db.trackFiles).get()) row.path: row,
     };
+    final rereadAll = await _storedReaderVersion() < readerVersion;
     final toRead = <FoundFile>[];
     for (final file in onDisk.values) {
       final row = known[file.path];
-      if (row == null ||
+      if (rereadAll ||
+          row == null ||
           row.sizeBytes != file.sizeBytes ||
           row.modifiedAt != file.modifiedMs ||
           row.folderId != file.folderId) {
@@ -155,6 +162,8 @@ class LibraryScanner {
       });
     }
 
+    if (rereadAll) await _storeReaderVersion();
+
     return ScanResult(
       added: added,
       updated: updated,
@@ -199,6 +208,19 @@ class LibraryScanner {
     String coversDir,
   ) => Isolate.run(() => readAudioFiles(batch, coversDir));
 
+  Future<int> _storedReaderVersion() async {
+    final row = await (_db.select(
+      _db.syncState,
+    )..where((s) => s.key.equals(_readerVersionKey))).getSingleOrNull();
+    return row?.value ?? 1;
+  }
+
+  Future<void> _storeReaderVersion() => _db
+      .into(_db.syncState)
+      .insertOnConflictUpdate(
+        SyncStateCompanion.insert(key: _readerVersionKey, value: readerVersion),
+      );
+
   /// fingerprint -> (track id, is tombstoned)
   Future<Map<String, ({String id, bool deleted})>> _loadFingerprints() async {
     final rows =
@@ -236,9 +258,35 @@ class LibraryScanner {
           durationMs: s.durationMs,
         );
         final existing = fingerprints[fingerprint];
+        final previous = known[s.file.path];
         final String trackId;
 
-        if (existing == null) {
+        if (existing == null && previous != null) {
+          // The same file with different tags (edited, or read better now):
+          // update its track instead of creating a new one, so likes,
+          // playlists and history stay attached.
+          trackId = previous.trackId;
+          await (_db.update(
+            _db.tracks,
+          )..where((t) => t.id.equals(trackId))).write(
+            TracksCompanion(
+              updatedAt: Value(now),
+              fingerprint: Value(fingerprint),
+              title: Value(s.title),
+              artist: Value(s.artist),
+              album: Value(s.album),
+              albumArtist: Value(s.albumArtist),
+              durationMs: Value(s.durationMs),
+              trackNumber: Value(s.trackNumber),
+              discNumber: Value(s.discNumber),
+              year: Value(s.year),
+              genre: Value(s.genre),
+            ),
+          );
+          fingerprints
+            ..removeWhere((_, v) => v.id == trackId)
+            ..[fingerprint] = (id: trackId, deleted: false);
+        } else if (existing == null) {
           trackId = _uuid.v4();
           await _db
               .into(_db.tracks)
@@ -290,6 +338,11 @@ class LibraryScanner {
               file,
               onConflict: DoUpdate((_) => file, target: [_db.trackFiles.path]),
             );
+        // A file is back for a track deleted here earlier: sync may bring
+        // it again from now on.
+        await (_db.delete(
+          _db.excludedTracks,
+        )..where((e) => e.trackId.equals(trackId))).go();
         known.containsKey(s.file.path) ? updated++ : added++;
       }
     });

@@ -3878,6 +3878,227 @@ class TrackAliasesCompanion extends UpdateCompanion<TrackAliasRow> {
   }
 }
 
+class $ExcludedTracksTable extends ExcludedTracks
+    with TableInfo<$ExcludedTracksTable, ExcludedTrackRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ExcludedTracksTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _trackIdMeta = const VerificationMeta(
+    'trackId',
+  );
+  @override
+  late final GeneratedColumn<String> trackId = GeneratedColumn<String>(
+    'track_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _excludedAtMeta = const VerificationMeta(
+    'excludedAt',
+  );
+  @override
+  late final GeneratedColumn<int> excludedAt = GeneratedColumn<int>(
+    'excluded_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [trackId, excludedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'excluded_tracks';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ExcludedTrackRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('track_id')) {
+      context.handle(
+        _trackIdMeta,
+        trackId.isAcceptableOrUnknown(data['track_id']!, _trackIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_trackIdMeta);
+    }
+    if (data.containsKey('excluded_at')) {
+      context.handle(
+        _excludedAtMeta,
+        excludedAt.isAcceptableOrUnknown(data['excluded_at']!, _excludedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_excludedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {trackId};
+  @override
+  ExcludedTrackRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ExcludedTrackRow(
+      trackId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}track_id'],
+      )!,
+      excludedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}excluded_at'],
+      )!,
+    );
+  }
+
+  @override
+  $ExcludedTracksTable createAlias(String alias) {
+    return $ExcludedTracksTable(attachedDatabase, alias);
+  }
+}
+
+class ExcludedTrackRow extends DataClass
+    implements Insertable<ExcludedTrackRow> {
+  final String trackId;
+  final int excludedAt;
+  const ExcludedTrackRow({required this.trackId, required this.excludedAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['track_id'] = Variable<String>(trackId);
+    map['excluded_at'] = Variable<int>(excludedAt);
+    return map;
+  }
+
+  ExcludedTracksCompanion toCompanion(bool nullToAbsent) {
+    return ExcludedTracksCompanion(
+      trackId: Value(trackId),
+      excludedAt: Value(excludedAt),
+    );
+  }
+
+  factory ExcludedTrackRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ExcludedTrackRow(
+      trackId: serializer.fromJson<String>(json['trackId']),
+      excludedAt: serializer.fromJson<int>(json['excludedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'trackId': serializer.toJson<String>(trackId),
+      'excludedAt': serializer.toJson<int>(excludedAt),
+    };
+  }
+
+  ExcludedTrackRow copyWith({String? trackId, int? excludedAt}) =>
+      ExcludedTrackRow(
+        trackId: trackId ?? this.trackId,
+        excludedAt: excludedAt ?? this.excludedAt,
+      );
+  ExcludedTrackRow copyWithCompanion(ExcludedTracksCompanion data) {
+    return ExcludedTrackRow(
+      trackId: data.trackId.present ? data.trackId.value : this.trackId,
+      excludedAt: data.excludedAt.present
+          ? data.excludedAt.value
+          : this.excludedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ExcludedTrackRow(')
+          ..write('trackId: $trackId, ')
+          ..write('excludedAt: $excludedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(trackId, excludedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ExcludedTrackRow &&
+          other.trackId == this.trackId &&
+          other.excludedAt == this.excludedAt);
+}
+
+class ExcludedTracksCompanion extends UpdateCompanion<ExcludedTrackRow> {
+  final Value<String> trackId;
+  final Value<int> excludedAt;
+  final Value<int> rowid;
+  const ExcludedTracksCompanion({
+    this.trackId = const Value.absent(),
+    this.excludedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ExcludedTracksCompanion.insert({
+    required String trackId,
+    required int excludedAt,
+    this.rowid = const Value.absent(),
+  }) : trackId = Value(trackId),
+       excludedAt = Value(excludedAt);
+  static Insertable<ExcludedTrackRow> custom({
+    Expression<String>? trackId,
+    Expression<int>? excludedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (trackId != null) 'track_id': trackId,
+      if (excludedAt != null) 'excluded_at': excludedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ExcludedTracksCompanion copyWith({
+    Value<String>? trackId,
+    Value<int>? excludedAt,
+    Value<int>? rowid,
+  }) {
+    return ExcludedTracksCompanion(
+      trackId: trackId ?? this.trackId,
+      excludedAt: excludedAt ?? this.excludedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (trackId.present) {
+      map['track_id'] = Variable<String>(trackId.value);
+    }
+    if (excludedAt.present) {
+      map['excluded_at'] = Variable<int>(excludedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ExcludedTracksCompanion(')
+          ..write('trackId: $trackId, ')
+          ..write('excludedAt: $excludedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -3891,6 +4112,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $TrackFilesTable trackFiles = $TrackFilesTable(this);
   late final $SyncStateTable syncState = $SyncStateTable(this);
   late final $TrackAliasesTable trackAliases = $TrackAliasesTable(this);
+  late final $ExcludedTracksTable excludedTracks = $ExcludedTracksTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -3904,6 +4126,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     trackFiles,
     syncState,
     trackAliases,
+    excludedTracks,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -6914,6 +7137,166 @@ typedef $$TrackAliasesTableProcessedTableManager =
       TrackAliasRow,
       PrefetchHooks Function()
     >;
+typedef $$ExcludedTracksTableCreateCompanionBuilder =
+    ExcludedTracksCompanion Function({
+      required String trackId,
+      required int excludedAt,
+      Value<int> rowid,
+    });
+typedef $$ExcludedTracksTableUpdateCompanionBuilder =
+    ExcludedTracksCompanion Function({
+      Value<String> trackId,
+      Value<int> excludedAt,
+      Value<int> rowid,
+    });
+
+class $$ExcludedTracksTableFilterComposer
+    extends Composer<_$AppDatabase, $ExcludedTracksTable> {
+  $$ExcludedTracksTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get trackId => $composableBuilder(
+    column: $table.trackId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get excludedAt => $composableBuilder(
+    column: $table.excludedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ExcludedTracksTableOrderingComposer
+    extends Composer<_$AppDatabase, $ExcludedTracksTable> {
+  $$ExcludedTracksTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get trackId => $composableBuilder(
+    column: $table.trackId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get excludedAt => $composableBuilder(
+    column: $table.excludedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ExcludedTracksTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ExcludedTracksTable> {
+  $$ExcludedTracksTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get trackId =>
+      $composableBuilder(column: $table.trackId, builder: (column) => column);
+
+  GeneratedColumn<int> get excludedAt => $composableBuilder(
+    column: $table.excludedAt,
+    builder: (column) => column,
+  );
+}
+
+class $$ExcludedTracksTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ExcludedTracksTable,
+          ExcludedTrackRow,
+          $$ExcludedTracksTableFilterComposer,
+          $$ExcludedTracksTableOrderingComposer,
+          $$ExcludedTracksTableAnnotationComposer,
+          $$ExcludedTracksTableCreateCompanionBuilder,
+          $$ExcludedTracksTableUpdateCompanionBuilder,
+          (
+            ExcludedTrackRow,
+            BaseReferences<
+              _$AppDatabase,
+              $ExcludedTracksTable,
+              ExcludedTrackRow
+            >,
+          ),
+          ExcludedTrackRow,
+          PrefetchHooks Function()
+        > {
+  $$ExcludedTracksTableTableManager(
+    _$AppDatabase db,
+    $ExcludedTracksTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ExcludedTracksTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ExcludedTracksTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ExcludedTracksTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> trackId = const Value.absent(),
+                Value<int> excludedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ExcludedTracksCompanion(
+                trackId: trackId,
+                excludedAt: excludedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String trackId,
+                required int excludedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => ExcludedTracksCompanion.insert(
+                trackId: trackId,
+                excludedAt: excludedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$ExcludedTracksTable, ExcludedTrackRow>(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $ExcludedTracksTable,
+                    ExcludedTrackRow
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ExcludedTracksTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ExcludedTracksTable,
+      ExcludedTrackRow,
+      $$ExcludedTracksTableFilterComposer,
+      $$ExcludedTracksTableOrderingComposer,
+      $$ExcludedTracksTableAnnotationComposer,
+      $$ExcludedTracksTableCreateCompanionBuilder,
+      $$ExcludedTracksTableUpdateCompanionBuilder,
+      (
+        ExcludedTrackRow,
+        BaseReferences<_$AppDatabase, $ExcludedTracksTable, ExcludedTrackRow>,
+      ),
+      ExcludedTrackRow,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -6934,4 +7317,6 @@ class $AppDatabaseManager {
       $$SyncStateTableTableManager(_db, _db.syncState);
   $$TrackAliasesTableTableManager get trackAliases =>
       $$TrackAliasesTableTableManager(_db, _db.trackAliases);
+  $$ExcludedTracksTableTableManager get excludedTracks =>
+      $$ExcludedTracksTableTableManager(_db, _db.excludedTracks);
 }

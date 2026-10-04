@@ -24,6 +24,8 @@ class AppSettings {
     this.accent = Accent.sky,
     this.scanDeviceMusic = true,
     this.downloadFormat = DownloadFormat.m4a,
+    this.minTrackSeconds = 0,
+    this.longAudioMinutes = 20,
   });
 
   final AppLanguage language;
@@ -36,16 +38,33 @@ class AppSettings {
   /// Format of new downloads (opus/mp3 are desktop-only).
   final DownloadFormat downloadFormat;
 
+  /// Tracks shorter than this are hidden everywhere (ringtones, clips).
+  /// 0 = show everything.
+  final int minTrackSeconds;
+
+  /// Tracks at least this long (audiobooks, podcasts) live in their own
+  /// library tab instead of Tracks, and resume where they were left.
+  /// 0 = no separate tab.
+  final int longAudioMinutes;
+
+  /// Whether [durationMs] counts as long audio under these settings.
+  bool isLong(int durationMs) =>
+      longAudioMinutes > 0 && durationMs >= longAudioMinutes * 60000;
+
   AppSettings copyWith({
     AppLanguage? language,
     Accent? accent,
     bool? scanDeviceMusic,
     DownloadFormat? downloadFormat,
+    int? minTrackSeconds,
+    int? longAudioMinutes,
   }) => AppSettings(
     language: language ?? this.language,
     accent: accent ?? this.accent,
     scanDeviceMusic: scanDeviceMusic ?? this.scanDeviceMusic,
     downloadFormat: downloadFormat ?? this.downloadFormat,
+    minTrackSeconds: minTrackSeconds ?? this.minTrackSeconds,
+    longAudioMinutes: longAudioMinutes ?? this.longAudioMinutes,
   );
 
   @override
@@ -54,9 +73,17 @@ class AppSettings {
       other.language == language &&
       other.accent == accent &&
       other.scanDeviceMusic == scanDeviceMusic &&
-      other.downloadFormat == downloadFormat;
+      other.downloadFormat == downloadFormat &&
+      other.minTrackSeconds == minTrackSeconds &&
+      other.longAudioMinutes == longAudioMinutes;
 
   @override
-  int get hashCode =>
-      Object.hash(language, accent, scanDeviceMusic, downloadFormat);
+  int get hashCode => Object.hash(
+    language,
+    accent,
+    scanDeviceMusic,
+    downloadFormat,
+    minTrackSeconds,
+    longAudioMinutes,
+  );
 }

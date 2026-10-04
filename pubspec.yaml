@@ -2,7 +2,7 @@ name: viplayer
 description: "Cross-platform music player with LAN sync and downloads"
 publish_to: 'none'
 
-version: 1.0.0+1
+version: 1.2.0+6
 
 environment:
   sdk: ^3.13.5
@@ -40,11 +40,13 @@ dependencies:
   http: ^1.6.0
   youtube_explode_dart: ^3.1.0
 
-  # Playback: engine (libmpv), system media controls (Android, MPRIS)
+  # Playback: engine (libmpv), system media controls (Android, MPRIS),
+  # audio focus (headset buttons, calls, unplugging)
   media_kit: ^1.2.6
   media_kit_libs_audio: ^1.0.7
   audio_service: ^0.18.19
   audio_service_mpris: ^0.2.1
+  audio_session: ^0.2.4
 
   # Stable ids for cross-device sync
   uuid: ^4.6.0
@@ -67,6 +69,12 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   generate: true # localizations from lib/l10n/*.arb (see l10n.yaml)
+
+  # Font licenses, shown in Settings → About → Licenses.
+  assets:
+    - assets/fonts/OFL-Inter.txt
+    - assets/fonts/OFL-JetBrainsMono.txt
+    - assets/fonts/OFL-Orbitron.txt
 
   fonts:
     # Bundled (not fetched at runtime) so the app looks the same offline.

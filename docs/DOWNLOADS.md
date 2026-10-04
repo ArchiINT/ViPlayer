@@ -41,6 +41,7 @@ YouTube/Spotify через связанный ПК (SYNC.md → «Скачива
 | `metadata_cleanup.dart` | «Artist - Title [NCS Release] (Official Video)» → исполнитель + название |
 | `tools/ytdlp.dart` | yt-dlp: скачивание с прогрессом и отменой, установка/обновление своей копии |
 | `tools/tagger.dart` | теги и обложка: ffmpeg на ПК (все форматы; в Opus — `METADATA_BLOCK_PICTURE`), Dart на телефоне |
+| `tools/id3_writer.dart` | свой писатель ID3v2.3 для MP3 на телефоне: библиотека тегов ничего не пишет в MP3 без ID3-заголовка, а SoundCloud часто отдаёт именно такие |
 | `download_service.dart` | путь одного трека: совпадение → звук → обложка → теги → файл → медиатека |
 | `download_queue.dart` | очередь: по 2 загрузки, отмена, повтор |
 

@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 import '../database/app_database.dart';
 import '../download/download_models.dart';
 import '../download/download_service.dart';
+import '../platform/app_log.dart';
 import 'changeset.dart';
 import 'discovery.dart';
 import 'peer_store.dart';
@@ -31,13 +32,13 @@ class PeerSyncState {
     this.phase = PeerPhase.idle,
     this.filesDone = 0,
     this.filesTotal = 0,
-    this.error,
+    this.failure,
   });
 
   final PeerPhase phase;
   final int filesDone;
   final int filesTotal;
-  final String? error;
+  final SyncFailure? failure;
 }
 
 @immutable
@@ -88,11 +89,33 @@ class SyncSnapshot {
   );
 }
 
+/// Why sync with a device failed — what the UI can explain to the user.
+enum SyncFailure {
+  /// The device does not answer (asleep, other network, firewall).
+  unreachable,
+
+  /// The device is not currently seen on the network.
+  notOnNetwork,
+
+  /// The other device rejected us: it was unpaired there. Pair again.
+  refused,
+
+  /// Pairing: the code was wrong (or expired).
+  wrongCode,
+
+  /// Anything else (details go to the log).
+  failed,
+}
+
 class SyncException implements Exception {
-  const SyncException(this.message);
-  final String message;
+  const SyncException(this.reason, [this.detail]);
+
+  final SyncFailure reason;
+  final String? detail;
+
   @override
-  String toString() => message;
+  String toString() =>
+      'SyncException($reason${detail == null ? '' : ': $detail'})';
 }
 
 /// Peer-to-peer sync over the local network (docs/SYNC.md).
@@ -201,7 +224,7 @@ class SyncService {
         _seenSub = discovery.seen.listen(_onSeen);
       } on SocketException catch (e) {
         // Port taken / no network: manual connection still works.
-        debugPrint('Sync discovery unavailable: $e');
+        AppLog.error('sync discovery unavailable', e);
       }
     }
     _expiryTimer = Timer.periodic(const Duration(seconds: 5), (_) => _expire());
@@ -321,7 +344,7 @@ class SyncService {
       },
     );
     if (response['proof'] != SyncAuth.proof(secret, 'responder')) {
-      throw const SyncException('wrong code');
+      throw const SyncException(SyncFailure.wrongCode);
     }
     final peer = PairedPeer(
       id: peerId,
@@ -392,8 +415,19 @@ class SyncService {
 
       await _savePeer(peer.copyWith(lastSync: DateTime.now()));
       _setPeerState(peerId, const PeerSyncState());
-    } catch (e) {
-      _setPeerState(peerId, PeerSyncState(phase: PeerPhase.error, error: '$e'));
+    } catch (e, stack) {
+      AppLog.error('sync with $peerId', e, stack);
+      _setPeerState(
+        peerId,
+        PeerSyncState(
+          phase: PeerPhase.error,
+          failure: switch (e) {
+            SyncException(:final reason) => reason,
+            SocketException() || TimeoutException() => SyncFailure.unreachable,
+            _ => SyncFailure.failed,
+          },
+        ),
+      );
       rethrow;
     }
   }
@@ -407,7 +441,7 @@ class SyncService {
       final response = await request.close();
       final body = await utf8.decoder.bind(response).join();
       if (response.statusCode != 200) {
-        throw SyncException('HTTP ${response.statusCode}: $body');
+        throw _httpFailure(response.statusCode, body);
       }
       final cursor = int.parse(response.headers.value('x-vp-cursor') ?? '0');
       return (
@@ -479,6 +513,8 @@ class SyncService {
         .customSelect(
           'SELECT t.id FROM tracks t WHERE t.deleted = 0 '
           'AND NOT EXISTS (SELECT 1 FROM track_files f WHERE f.track_id = t.id) '
+          // Deleted here on purpose: never fetch again.
+          'AND t.id NOT IN (SELECT track_id FROM excluded_tracks) '
           'AND (${conditions.join(' OR ')})',
           variables: [for (final u in requested) Variable.withString(u)],
         )
@@ -822,15 +858,11 @@ class SyncService {
       final response = await request.close();
       final text = await utf8.decoder.bind(response).join();
       if (response.statusCode >= 400) {
-        throw SyncException(
-          response.statusCode == HttpStatus.forbidden
-              ? 'wrong code'
-              : 'HTTP ${response.statusCode} $text',
-        );
+        throw _httpFailure(response.statusCode, text);
       }
       return text.isEmpty ? '{}' : text;
     } on SocketException catch (e) {
-      throw SyncException('device unreachable: ${e.message}');
+      throw SyncException(SyncFailure.unreachable, e.message);
     } finally {
       client.close(force: true);
     }
@@ -850,7 +882,7 @@ class SyncService {
       final response = await request.close();
       if (response.statusCode != 200) {
         await response.drain<void>();
-        throw SyncException('file $path: HTTP ${response.statusCode}');
+        throw _httpFailure(response.statusCode, 'file $path');
       }
       await response.pipe(part.openWrite());
       await part.rename(target.path);
@@ -913,7 +945,7 @@ class SyncService {
   Future<void> saveToDevice(String trackId) async {
     final peerId = _peerWithFile(trackId);
     if (peerId == null) {
-      throw const SyncException('device is not on the network');
+      throw const SyncException(SyncFailure.notOnNetwork);
     }
     final track = await (_db.select(
       _db.tracks,
@@ -1001,9 +1033,16 @@ class SyncService {
 
   // -------------------------------------------------------------- helpers
 
+  static SyncException _httpFailure(int status, String detail) =>
+      SyncException(switch (status) {
+        HttpStatus.unauthorized => SyncFailure.refused,
+        HttpStatus.forbidden => SyncFailure.wrongCode,
+        _ => SyncFailure.failed,
+      }, 'HTTP $status: $detail');
+
   NearbyDevice _nearby(String id) =>
       _state.nearby[id] ??
-      (throw const SyncException('device is not on the network'));
+      (throw const SyncException(SyncFailure.notOnNetwork));
 
   Future<void> _savePeer(PairedPeer peer) async {
     final peers = {..._state.paired, peer.id: peer};

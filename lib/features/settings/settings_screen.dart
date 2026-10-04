@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -7,6 +8,7 @@ import '../../core/download/download_models.dart';
 import '../../core/download/download_providers.dart';
 import '../../core/library/library_providers.dart';
 import '../../core/platform/app_directories.dart';
+import '../../core/platform/app_log.dart';
 import '../../core/router/app_router.dart';
 import '../../core/settings/app_settings.dart';
 import '../../core/settings/settings_providers.dart';
@@ -93,6 +95,26 @@ class SettingsScreen extends ConsumerWidget {
                 trailing: const Icon(Icons.chevron_right_rounded),
                 onTap: () => context.go(AppRoutes.folders),
               ),
+              _ChoiceTile(
+                icon: Icons.timer_off_outlined,
+                title: l10n.settingsHideShort,
+                value: settings.minTrackSeconds,
+                options: const [0, 30, 60, 120],
+                label: (v) => switch (v) {
+                  0 => l10n.off,
+                  < 60 => l10n.shorterThanSeconds(v),
+                  _ => l10n.shorterThanMinutes(v ~/ 60),
+                },
+                onSelected: controller.setMinTrackSeconds,
+              ),
+              _ChoiceTile(
+                icon: Icons.menu_book_rounded,
+                title: l10n.settingsLongTab,
+                value: settings.longAudioMinutes,
+                options: const [0, 15, 20, 30, 60],
+                label: (v) => v == 0 ? l10n.off : l10n.fromMinutes(v),
+                onSelected: controller.setLongAudioMinutes,
+              ),
               ListTile(
                 leading: const Icon(Icons.download_outlined),
                 title: Text(l10n.settingsDownloadFolder),
@@ -132,6 +154,30 @@ class SettingsScreen extends ConsumerWidget {
                   style: pathStyle,
                 ),
               ),
+              ListTile(
+                leading: const Icon(Icons.description_outlined),
+                title: Text(l10n.settingsLicenses),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => showLicensePage(
+                  context: context,
+                  applicationName: l10n.appTitle,
+                  applicationVersion: version,
+                ),
+              ),
+              if (AppLog.path case final log?)
+                ListTile(
+                  leading: const Icon(Icons.bug_report_outlined),
+                  title: Text(l10n.settingsLog),
+                  subtitle: Text(log, style: pathStyle),
+                  trailing: const Icon(Icons.copy_rounded),
+                  onTap: () async {
+                    final messenger = ScaffoldMessenger.of(context);
+                    await Clipboard.setData(ClipboardData(text: log));
+                    messenger.showSnackBar(
+                      SnackBar(content: Text(l10n.copied)),
+                    );
+                  },
+                ),
             ],
           ),
         ],
@@ -296,6 +342,47 @@ class _DownloadSettingsState extends ConsumerState<_DownloadSettings> {
                   ),
           ),
       ],
+    );
+  }
+}
+
+/// A setting with a few fixed choices, shown as a menu.
+class _ChoiceTile extends StatelessWidget {
+  const _ChoiceTile({
+    required this.icon,
+    required this.title,
+    required this.value,
+    required this.options,
+    required this.label,
+    required this.onSelected,
+  });
+
+  final IconData icon;
+  final String title;
+  final int value;
+  final List<int> options;
+  final String Function(int) label;
+  final void Function(int) onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<int>(
+      initialValue: value,
+      onSelected: onSelected,
+      itemBuilder: (context) => [
+        for (final o in options)
+          CheckedPopupMenuItem(
+            value: o,
+            checked: o == value,
+            child: Text(label(o)),
+          ),
+      ],
+      child: ListTile(
+        leading: Icon(icon),
+        title: Text(title),
+        subtitle: Text(label(value)),
+        trailing: const Icon(Icons.expand_more_rounded),
+      ),
     );
   }
 }

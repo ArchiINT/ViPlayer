@@ -4,6 +4,7 @@ import '../library/collections_providers.dart';
 import '../library/library_models.dart';
 import '../library/library_providers.dart';
 import '../platform/device_id.dart';
+import '../settings/settings_providers.dart';
 import 'play_history_tracker.dart';
 import 'player_service.dart';
 
@@ -61,6 +62,12 @@ final playerBootstrapProvider = Provider<void>((ref) {
   );
   ref.onDispose(history.dispose);
 
+  // The player outlives this provider: give it a plain copy of the setting
+  // (kept current by a listener), never a closure over `ref`.
+  var settings = ref.read(settingsProvider);
+  ref.listen(settingsProvider, (_, next) => settings = next);
+  player.isLong = (track) => settings.isLong(track.durationMs);
+  ref.onDispose(() => player.isLong = null);
   player.onDurationMeasured = (track, actual) =>
       repository.updateDuration(track.id, actual.inMilliseconds);
 

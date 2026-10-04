@@ -11,6 +11,7 @@ import '../../core/sync/sync_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
+import '../../shared/utils/sync_texts.dart';
 import '../../shared/widgets/glass_panel.dart';
 import '../../shared/widgets/section_header.dart';
 
@@ -152,8 +153,10 @@ class SyncScreen extends ConsumerWidget {
     final service = ref.read(syncServiceProvider);
     try {
       await service.requestPairing(device.id);
-    } on Exception catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('$e')));
+    } on SyncException catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(l10n.syncFailure(e.reason))),
+      );
       return;
     }
     if (!context.mounted) return;
@@ -228,9 +231,8 @@ class _PairedTile extends ConsumerWidget {
       PeerSyncState(phase: PeerPhase.syncing, filesTotal: > 0) =>
         l10n.syncFiles(st.filesDone, st.filesTotal),
       PeerSyncState(phase: PeerPhase.syncing) => l10n.syncInProgress,
-      PeerSyncState(phase: PeerPhase.error, :final error?) => l10n.syncFailed(
-        error,
-      ),
+      PeerSyncState(phase: PeerPhase.error, :final failure?) =>
+        l10n.syncFailure(failure),
       _ when peer.lastSync != null => l10n.syncLast(
         DateFormat.MMMd(locale).add_Hm().format(peer.lastSync!),
       ),

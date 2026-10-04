@@ -13,7 +13,9 @@ abstract final class MetadataCleanup {
     r'^(official\s*(music\s*)?(video|audio|lyric(s)?\s*video|visuali[sz]er)?|'
     r'(official\s*)?lyrics?(\s*video)?|audio|video|music\s*video|mv|hd|hq|'
     r'4k|8k|full\s*hd|1080p|720p|visuali[sz]er|explicit|clean|'
-    r'.*\bncs\b.*|.*copyright.*|free\s*download|out\s*now|premiere)$',
+    r'.*\bncs\b.*|.*copyright.*|free\s*download|out\s*now|premiere|'
+    // site watermarks: [mp3uk.net], (muzofond.fm)
+    r'(www\.)?[\w-]+\.(com|net|org|ru|ua|by|kz|io|me|fm|cc|to|info|biz|club|pro))$',
     caseSensitive: false,
   );
 

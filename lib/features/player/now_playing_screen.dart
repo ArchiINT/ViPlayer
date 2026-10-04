@@ -4,15 +4,15 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/library/library_models.dart';
 import '../../core/player/player_providers.dart';
-import '../../core/router/app_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/widgets/ambient_background.dart';
 import '../../shared/widgets/cover_art.dart';
+import '../../shared/widgets/glass_panel.dart';
 import '../../shared/widgets/like_button.dart';
 import '../../shared/widgets/player_controls.dart';
-import 'queue_view.dart';
+import 'up_next.dart';
 
 /// Full-screen player: large cover over its own blurred artwork, title,
 /// seek bar and controls. Wide windows show the queue alongside.
@@ -60,12 +60,6 @@ class NowPlayingScreen extends ConsumerWidget {
               centerTitle: true,
               actions: [
                 LikeButton(track: track, size: 26),
-                if (!wide)
-                  IconButton(
-                    tooltip: l10n.queue,
-                    onPressed: () => showQueueSheet(context),
-                    icon: const Icon(Icons.queue_music_rounded),
-                  ),
                 const SizedBox(width: 4),
               ],
             ),
@@ -79,12 +73,12 @@ class NowPlayingScreen extends ConsumerWidget {
                           flex: 4,
                           child: Padding(
                             padding: EdgeInsets.fromLTRB(0, 8, 24, 24),
-                            child: QueueView(),
+                            child: GlassPanel(child: UpNextPanel()),
                           ),
                         ),
                       ],
                     )
-                  : player,
+                  : _WithUpNextSheet(child: player),
             ),
           ),
         ],
@@ -142,19 +136,12 @@ class _PlayerColumn extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     if (track.artist.isNotEmpty)
-                      TextButton(
-                        // `go` replaces the stack: closes the player and opens
-                        // the artist inside the library tab.
-                        onPressed: () => context.go(
-                          '${AppRoutes.library}/artist/'
-                          '${Uri.encodeComponent(track.artist)}',
-                        ),
-                        child: Text(
-                          track.artist,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            color: AppColors.textSecondary,
-                          ),
+                      Text(
+                        track.artist,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          color: AppColors.textSecondary,
                         ),
                       ),
                   ],
@@ -183,6 +170,68 @@ class _PlayerColumn extends StatelessWidget {
               if (wide) ...[const SizedBox(height: 12), const VolumeSlider()],
             ],
           ),
+        );
+      },
+    );
+  }
+}
+
+/// Phone layout: the player, with "Up next" as a sheet docked at the bottom
+/// (a strip when collapsed; drag it up to see and edit the queue).
+class _WithUpNextSheet extends StatelessWidget {
+  const _WithUpNextSheet({required this.child});
+
+  final Widget child;
+
+  static const _collapsedHeight = 64.0;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final collapsed = (_collapsedHeight / constraints.maxHeight).clamp(
+          0.05,
+          0.3,
+        );
+        return Stack(
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: _collapsedHeight),
+              child: child,
+            ),
+            DraggableScrollableSheet(
+              initialChildSize: collapsed,
+              minChildSize: collapsed,
+              maxChildSize: 0.9,
+              snap: true,
+              // Material (not a decorated box) so row ripples show.
+              builder: (context, controller) => Material(
+                color: AppColors.overlay,
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.vertical(
+                    top: Radius.circular(AppRadius.large),
+                  ),
+                  side: BorderSide(color: AppColors.glassBorder),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: Column(
+                  children: [
+                    // Grab handle.
+                    Container(
+                      margin: const EdgeInsets.only(top: 8, bottom: 4),
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppColors.textTertiary,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    Expanded(child: UpNextPanel(scrollController: controller)),
+                  ],
+                ),
+              ),
+            ),
+          ],
         );
       },
     );

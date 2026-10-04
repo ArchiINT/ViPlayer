@@ -5,13 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/library/library_models.dart';
 import '../../core/library/library_providers.dart';
-import '../../core/router/app_router.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/actions/playback.dart';
-import '../../shared/widgets/album_card.dart';
-import '../../shared/widgets/artist_tile.dart';
 import '../../shared/widgets/empty_state.dart';
-import '../../shared/widgets/section_header.dart';
 import '../../shared/widgets/track_tile.dart';
 
 /// Searches the local library as you type. Online search (downloads by name)
@@ -91,7 +87,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     title: l10n.searchNoResults(_query),
                     message: '',
                   )
-                : _Results(result: result),
+                : _Results(tracks: result),
           ),
         ],
       ),
@@ -100,71 +96,21 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 }
 
 class _Results extends StatelessWidget {
-  const _Results({required this.result});
+  const _Results({required this.tracks});
 
-  /// Albums/artists are a quick jump, not the main result — keep them short.
-  static const _maxGroupItems = 8;
-
-  final LibrarySearchResult result;
+  final List<LibraryTrack> tracks;
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final artists = result.artists.take(_maxGroupItems).toList();
-    final albums = result.albums.take(_maxGroupItems).toList();
-
-    return CustomScrollView(
+    return ListView.builder(
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      slivers: [
-        if (artists.isNotEmpty) ...[
-          SliverToBoxAdapter(child: SectionHeader(l10n.libraryArtists)),
-          SliverFixedExtentList(
-            itemExtent: ArtistTile.extent,
-            delegate: SliverChildBuilderDelegate(
-              (context, i) => ArtistTile(
-                artist: artists[i],
-                onTap: () => openArtist(context, artists[i].name),
-              ),
-              childCount: artists.length,
-            ),
-          ),
-        ],
-        if (albums.isNotEmpty) ...[
-          SliverToBoxAdapter(child: SectionHeader(l10n.libraryAlbums)),
-          SliverToBoxAdapter(
-            child: SizedBox(
-              height: 210,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                itemCount: albums.length,
-                itemBuilder: (context, i) => SizedBox(
-                  width: 160,
-                  child: AlbumCard(
-                    album: albums[i],
-                    onTap: () => openAlbum(context, albums[i].key),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-        if (result.tracks.isNotEmpty) ...[
-          SliverToBoxAdapter(child: SectionHeader(l10n.libraryTracks)),
-          SliverFixedExtentList(
-            itemExtent: TrackTile.extent,
-            delegate: SliverChildBuilderDelegate(
-              (context, i) => TrackTile(
-                track: result.tracks[i],
-                onTap: () =>
-                    playTrack(context, result.tracks[i], queue: result.tracks),
-              ),
-              childCount: result.tracks.length,
-            ),
-          ),
-        ],
-        const SliverPadding(padding: EdgeInsets.only(bottom: 24)),
-      ],
+      padding: const EdgeInsets.only(bottom: 24),
+      itemExtent: TrackTile.extent,
+      itemCount: tracks.length,
+      itemBuilder: (context, i) => TrackTile(
+        track: tracks[i],
+        onTap: () => playTrack(context, tracks[i], queue: tracks),
+      ),
     );
   }
 }

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../database/app_database.dart';
 import '../platform/app_directories.dart';
+import '../platform/app_log.dart';
 import '../settings/settings_providers.dart';
 import '../sync/sync_providers.dart';
 import 'audio_files.dart';
@@ -91,13 +92,43 @@ Stream<T> _throttleLatest<T>(Stream<T> source, Duration interval) {
   return controller.stream;
 }
 
-/// Albums/artists/search index: local tracks plus tracks streamable from a
-/// paired device at home (see remoteTracksProvider).
+/// Search index: local tracks plus tracks streamable from a paired device
+/// at home (see remoteTracksProvider).
+///
+/// Tracks shorter than the "hide short tracks" setting are left out
+/// everywhere.
 final libraryIndexProvider = Provider<AsyncValue<LibraryIndex>>((ref) {
   final remote = ref.watch(remoteTracksProvider).value ?? const [];
+  final minMs =
+      ref.watch(settingsProvider.select((s) => s.minTrackSeconds)) * 1000;
   return ref
       .watch(libraryTracksProvider)
-      .whenData((local) => LibraryIndex.build([...local, ...remote]));
+      .whenData(
+        (local) => LibraryIndex.build([
+          for (final t in [...local, ...remote])
+            if (minMs == 0 || t.durationMs == 0 || t.durationMs >= minMs) t,
+        ]),
+      );
+});
+
+/// The Tracks tab: everything except long audio (books, podcasts).
+final musicTracksProvider = Provider<List<LibraryTrack>>((ref) {
+  final settings = ref.watch(settingsProvider);
+  final index = ref.watch(libraryIndexProvider).value ?? LibraryIndex.empty;
+  return [
+    for (final t in index.tracks)
+      if (!settings.isLong(t.durationMs)) t,
+  ];
+});
+
+/// The "Books & podcasts" tab: long audio, most recently added first.
+final longTracksProvider = Provider<List<LibraryTrack>>((ref) {
+  final settings = ref.watch(settingsProvider);
+  final index = ref.watch(libraryIndexProvider).value ?? LibraryIndex.empty;
+  return LibraryIndex.sortTracks([
+    for (final t in index.tracks)
+      if (settings.isLong(t.durationMs)) t,
+  ], TrackSort.recentlyAdded);
 });
 
 final libraryFoldersProvider = StreamProvider<List<LibraryFolderRow>>(
@@ -180,7 +211,7 @@ class ScanController extends Notifier<ScanState> {
       state = ScanState(last: result);
       _watch(result.directories);
     } catch (error, stack) {
-      debugPrint('Library scan failed: $error\n$stack');
+      AppLog.error('library scan', error, stack);
       if (ref.mounted) state = ScanState(last: state.last, error: error);
     }
 

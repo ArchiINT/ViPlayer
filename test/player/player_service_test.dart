@@ -171,4 +171,45 @@ void main() {
     expect(s.current!.id, 'a');
     expect(backend.positionValue, Duration.zero);
   });
+
+  group('long audio resumes where it was left', () {
+    final book = _track('book', durationMs: 3 * 3600 * 1000);
+    final song = _track('song');
+
+    setUp(() => player.isLong = (t) => t.durationMs > 20 * 60000);
+
+    test('switching away and back continues the book', () async {
+      await player.playQueue([book, song]);
+      backend.advanceTo(const Duration(minutes: 42));
+      await player.next(); // to the song
+      expect(player.resumePositionOf('book'), const Duration(minutes: 42));
+
+      await player.previous(); // song just started: goes back to the book
+      expect(state().current!.id, 'book');
+      expect(backend.positionValue, const Duration(minutes: 42));
+    });
+
+    test('a position reset while switching does not erase the mark', () async {
+      await player.playQueue([book, song]);
+      backend.advanceTo(const Duration(minutes: 42));
+      await player.next();
+      backend.advanceTo(Duration.zero);
+      await player.jumpTo(0);
+      expect(player.resumePositionOf('book'), const Duration(minutes: 42));
+    });
+
+    test('a finished book starts over next time', () async {
+      await player.playQueue([book, song]);
+      backend.advanceTo(Duration(milliseconds: book.durationMs - 5000));
+      await player.next();
+      expect(player.resumePositionOf('book'), isNull);
+    });
+
+    test('songs do not resume', () async {
+      await player.playQueue([song, book]);
+      backend.advanceTo(const Duration(minutes: 2));
+      await player.next();
+      expect(player.resumePositionOf('song'), isNull);
+    });
+  });
 }

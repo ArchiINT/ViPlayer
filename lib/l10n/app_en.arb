@@ -11,7 +11,6 @@
   "searchHint": "Tracks, artists, albums",
   "searchEmptyBody": "Search tracks, artists and albums in your library.",
   "playlistsLiked": "Liked",
-  "playlistsEmptyTitle": "No playlists yet",
   "playlistsEmptyBody": "Create a playlist, then add tracks from their menu. Playlists sync between your devices.",
   "downloadsByLink": "By link",
   "downloadsByName": "By name",
@@ -32,8 +31,6 @@
       }
     }
   },
-  "languageEnglish": "English",
-  "languageRussian": "Русский",
   "searchNoResults": "Nothing found for “{query}”",
   "@searchNoResults": {
     "placeholders": {
@@ -43,18 +40,8 @@
     }
   },
   "libraryTracks": "Tracks",
-  "libraryAlbums": "Albums",
-  "libraryArtists": "Artists",
   "trackCount": "{count, plural, =1{1 track} other{{count} tracks}}",
   "@trackCount": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
-  "albumCount": "{count, plural, =1{1 album} other{{count} albums}}",
-  "@albumCount": {
     "placeholders": {
       "count": {
         "type": "int"
@@ -134,10 +121,8 @@
   "accentLavender": "Lavender",
   "accentAmber": "Amber",
   "nowPlaying": "Now playing",
-  "queue": "Queue",
   "upNext": "Up next",
   "shuffle": "Shuffle",
-  "repeat": "Repeat",
   "repeatOff": "Repeat off",
   "repeatAll": "Repeat all",
   "repeatOne": "Repeat one",
@@ -147,9 +132,6 @@
   "volume": "Volume",
   "playNext": "Play next",
   "addToQueue": "Add to queue",
-  "removeFromQueue": "Remove from queue",
-  "goToAlbum": "Go to album",
-  "goToArtist": "Go to artist",
   "addedToQueue": "Added to queue",
   "willPlayNext": "Will play next",
   "queueEmpty": "The queue is empty",
@@ -171,7 +153,6 @@
     }
   },
   "availableOffline": "Available offline",
-  "availableOfflineSubtitle": "Copy its tracks to the phone when syncing",
   "addToPlaylist": "Add to playlist",
   "addedToPlaylist": "Added to “{name}”",
   "@addedToPlaylist": {
@@ -204,14 +185,6 @@
   "paste": "Paste",
   "find": "Find",
   "download": "Download",
-  "downloadAll": "Download all ({count})",
-  "@downloadAll": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
   "downloadsQueue": "Queue",
   "clearFinished": "Clear finished",
   "retry": "Retry",
@@ -320,14 +293,6 @@
       }
     }
   },
-  "syncFailed": "Sync failed: {error}",
-  "@syncFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
   "syncEnterCode": "Enter the code shown on “{name}”",
   "@syncEnterCode": {
     "placeholders": {
@@ -389,11 +354,71 @@
       }
     }
   },
-  "viaDevice": "via {name}",
-  "@viaDevice": {
+  "syncErrUnreachable": "The device does not respond. Is ViPlayer open there, and is the PC firewall letting it in?",
+  "syncErrNotOnNetwork": "The device is not on the network right now.",
+  "syncErrRefused": "The other device no longer knows this one. Unpair and pair again.",
+  "syncErrFailed": "Something went wrong. Details are in the log.",
+  "libraryLoadFailed": "Could not load the library. Details are in the log.",
+  "settingsLog": "Error log",
+  "settingsLicenses": "Licenses",
+  "copied": "Copied",
+  "deleteFromDevice": "Delete from device",
+  "deleteFromDeviceConfirm": "Delete “{title}” from this device? The file is removed; your other devices keep the song.",
+  "@deleteFromDeviceConfirm": {
     "placeholders": {
-      "name": {
+      "title": {
         "type": "String"
+      }
+    }
+  },
+  "deletedFromDevice": "Deleted from this device",
+  "deleteFailed": "Could not delete the file",
+  "addTracks": "Add",
+  "tabLong": "Books & podcasts",
+  "longEmptyTitle": "Nothing long here",
+  "longEmptyBody": "Audiobooks, podcasts and other recordings longer than {minutes} min appear here and continue where you left off.",
+  "@longEmptyBody": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "resumeAt": "Stopped at {position} of {total}",
+  "@resumeAt": {
+    "placeholders": {
+      "position": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsHideShort": "Hide short tracks",
+  "settingsLongTab": "Books & podcasts tab",
+  "off": "Off",
+  "shorterThanSeconds": "Shorter than {seconds} s",
+  "@shorterThanSeconds": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "shorterThanMinutes": "Shorter than {minutes} min",
+  "@shorterThanMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "fromMinutes": "From {minutes} min",
+  "@fromMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
       }
     }
   }

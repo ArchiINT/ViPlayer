@@ -104,35 +104,25 @@ void main() {
     await app.dispose(tester);
   });
 
-  testWidgets('library lists tracks, albums and artists', (tester) async {
+  testWidgets('library tabs: tracks, liked, playlists', (tester) async {
     final app = await TestApp.create();
-    await app.addTrack(
-      id: 'a',
-      title: 'Neon Rain',
-      artist: 'Synth Rider',
-      album: 'Night City',
-      trackNumber: 1,
-    );
-    await app.addTrack(
-      id: 'b',
-      title: 'Ghost Signal',
-      artist: 'Synth Rider',
-      album: 'Night City',
-      trackNumber: 2,
-    );
+    await app.addTrack(id: 'a', title: 'Neon Rain', artist: 'Synth Rider');
+    await app.addTrack(id: 'b', title: 'Ghost Signal', artist: 'Synth Rider');
     await app.pump(tester);
 
     expect(find.text('Neon Rain'), findsOneWidget);
     expect(find.text('2 tracks · 6 min'), findsOneWidget);
+    expect(find.text('Albums'), findsNothing);
+    expect(find.text('Artists'), findsNothing);
 
-    await tester.tap(find.text('Albums'));
+    await tester.tap(find.text('Liked'));
     await tester.pumpAndSettle();
-    expect(find.text('Night City'), findsOneWidget);
+    expect(find.text('No liked tracks yet'), findsOneWidget);
 
-    await tester.tap(find.text('Night City'));
+    await tester.tap(find.text('Playlists'));
     await tester.pumpAndSettle();
-    expect(find.text('Synth Rider'), findsWidgets);
-    expect(find.text('1'), findsOneWidget); // track numbers on album page
+    expect(find.text('New playlist'), findsOneWidget);
+    expect(find.text('Recently played'), findsOneWidget);
 
     await app.dispose(tester);
   });
@@ -201,8 +191,13 @@ void main() {
     );
     expect(row!.liked, isTrue);
 
+    // Liked tab shows it.
+    await tester.tap(find.text('Liked'));
+    await tester.pumpAndSettle();
+    expect(find.text('Neon Rain'), findsWidgets);
+
     // New playlist from the Playlists tab.
-    await tester.tap(find.byIcon(Icons.queue_music_outlined));
+    await tester.tap(find.text('Playlists'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('New playlist'));
     await tester.pumpAndSettle();
@@ -212,13 +207,34 @@ void main() {
     expect(find.text('Road trip'), findsOneWidget); // its page
     expect(find.text('This playlist is empty'), findsOneWidget);
 
-    // Back to the list: Liked shows 1 track, playlist is listed.
     await tester.pageBack();
     await tester.pumpAndSettle();
     expect(find.text('Road trip'), findsOneWidget);
-    await tester.tap(find.text('Liked'));
+
+    await app.dispose(tester);
+  });
+
+  testWidgets('delete a track from this device', (tester) async {
+    final app = await TestApp.create();
+    await app.addTrack(id: 'a', title: 'Neon Rain', artist: 'Synth Rider');
+    await app.pump(tester);
+
+    await tester.longPress(find.text('Neon Rain'));
     await tester.pumpAndSettle();
-    expect(find.text('Neon Rain'), findsOneWidget);
+    await tester.tap(find.text('Delete from device'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Neon Rain'), findsNothing);
+    final excluded = await tester.runAsync(
+      () => app.db.select(app.db.excludedTracks).get(),
+    );
+    expect(
+      excluded!.single.trackId,
+      'a',
+      reason: 'sync will not bring it back',
+    );
 
     await app.dispose(tester);
   });
@@ -290,6 +306,75 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('In your library'), findsOneWidget);
     expect(app.preview.state.value.key, isNull, reason: 'preview stopped');
+
+    await app.dispose(tester);
+  });
+
+  testWidgets('up next: add a track from the library to the queue', (
+    tester,
+  ) async {
+    final app = await TestApp.create();
+    await app.addTrack(id: 'a', title: 'Neon Rain', artist: 'Synth Rider');
+    await app.addTrack(id: 'b', title: 'Ghost Signal', artist: 'Synth Rider');
+    await app.pump(tester);
+
+    await tester.tap(find.text('Neon Rain'));
+    await tester.pumpAndSettle();
+    await app.player.playQueue([app.player.snapshot.value.current!]);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Neon Rain').last); // mini player
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Up next', findRichText: true), findsOneWidget);
+
+    await tester.tap(find.text('Add'));
+    await tester.pumpAndSettle();
+    // Sorted by title: Ghost Signal is the first row.
+    await tester.tap(find.byTooltip('Play next').first);
+    await tester.pumpAndSettle();
+
+    expect(
+      [for (final t in app.player.snapshot.value.queue) t.title],
+      ['Neon Rain', 'Ghost Signal'],
+    );
+
+    await app.dispose(tester);
+  });
+
+  testWidgets('long recordings get their own tab; short ones can be hidden', (
+    tester,
+  ) async {
+    final app = await TestApp.create();
+    await app.addTrack(id: 'song', title: 'Neon Rain', durationMs: 185000);
+    await app.addTrack(
+      id: 'book',
+      title: 'Master and Margarita',
+      durationMs: 9 * 3600 * 1000,
+    );
+    await app.addTrack(id: 'clip', title: 'Ringtone', durationMs: 20000);
+    await app.pump(tester);
+
+    // Default: books from 20 min live in their own tab.
+    expect(find.text('Master and Margarita'), findsNothing);
+    expect(find.text('Ringtone'), findsOneWidget);
+    await tester.tap(find.text('Books & podcasts'));
+    await tester.pumpAndSettle();
+    expect(find.text('Master and Margarita'), findsOneWidget);
+
+    // Hide tracks shorter than 30 s.
+    await app.prefs.setInt('settings.minTrackSeconds', 30);
+    await tester.tap(find.byIcon(Icons.settings_outlined));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Hide short tracks'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Shorter than 30 s').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.library_music_outlined));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Tracks'));
+    await tester.pumpAndSettle();
+    expect(find.text('Ringtone'), findsNothing);
+    expect(find.text('Neon Rain'), findsOneWidget);
 
     await app.dispose(tester);
   });

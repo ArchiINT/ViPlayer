@@ -3,14 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/downloads/downloads_screen.dart';
-import '../../features/library/album_screen.dart';
-import '../../features/library/artist_screen.dart';
 import '../../features/library/library_screen.dart';
 import '../../features/player/mini_player.dart';
 import '../../features/player/now_playing_screen.dart';
-import '../../features/playlists/liked_screen.dart';
 import '../../features/playlists/playlist_screen.dart';
-import '../../features/playlists/playlists_screen.dart';
 import '../../features/playlists/recent_screen.dart';
 import '../../features/search/search_screen.dart';
 import '../../features/settings/folders_screen.dart';
@@ -24,15 +20,14 @@ import '../theme/app_theme.dart';
 abstract final class AppRoutes {
   static const library = '/library';
   static const search = '/search';
-  static const playlists = '/playlists';
   static const downloads = '/downloads';
   static const settings = '/settings';
   static const folders = '/settings/folders';
   static const sync = '/settings/sync';
 
-  static const liked = '/playlists/liked';
-  static const recent = '/playlists/recent';
-  static String playlist(String id) => '/playlists/p/$id';
+  /// Inside the library tab (Playlists sub-tab).
+  static const recent = '/library/recent';
+  static String playlist(String id) => '/library/p/$id';
 
   /// Full-screen player, above the tabs.
   static const player = '/player';
@@ -84,21 +79,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           _branch(
             AppRoutes.library,
             const LibraryScreen(),
-            routes: _detailRoutes(),
-          ),
-          _branch(
-            AppRoutes.search,
-            const SearchScreen(),
-            routes: _detailRoutes(),
-          ),
-          _branch(
-            AppRoutes.playlists,
-            const PlaylistsScreen(),
             routes: [
-              GoRoute(
-                path: 'liked',
-                builder: (context, state) => const LikedScreen(),
-              ),
               GoRoute(
                 path: 'recent',
                 builder: (context, state) => const RecentScreen(),
@@ -108,9 +89,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 builder: (context, state) =>
                     PlaylistScreen(playlistId: state.pathParameters['id']!),
               ),
-              ..._detailRoutes(),
             ],
           ),
+          _branch(AppRoutes.search, const SearchScreen()),
           _branch(AppRoutes.downloads, const DownloadsScreen()),
           _branch(
             AppRoutes.settings,
@@ -143,29 +124,3 @@ StatefulShellBranch _branch(
     GoRoute(path: path, builder: (context, state) => screen, routes: routes),
   ],
 );
-
-/// Album and artist pages, available inside every tab that lists music so
-/// opening one never jumps to another tab.
-List<RouteBase> _detailRoutes() => [
-  GoRoute(
-    path: 'album/:key',
-    builder: (context, state) =>
-        AlbumScreen(albumKey: state.pathParameters['key']!),
-  ),
-  GoRoute(
-    path: 'artist/:name',
-    builder: (context, state) =>
-        ArtistScreen(artistName: state.pathParameters['name']!),
-  ),
-];
-
-/// Opens an album page within the current tab.
-void openAlbum(BuildContext context, String albumKey) =>
-    context.push('${_tabRoot(context)}/album/${Uri.encodeComponent(albumKey)}');
-
-/// Opens an artist page within the current tab.
-void openArtist(BuildContext context, String name) =>
-    context.push('${_tabRoot(context)}/artist/${Uri.encodeComponent(name)}');
-
-String _tabRoot(BuildContext context) =>
-    '/${GoRouterState.of(context).uri.pathSegments.first}';

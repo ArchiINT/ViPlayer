@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/library/file_deleter.dart';
 import '../../core/library/library_models.dart';
+import '../../core/library/library_providers.dart';
 import '../../core/player/player_providers.dart';
-import '../../core/router/app_router.dart';
 import '../../core/sync/sync_providers.dart';
+import '../../core/sync/sync_service.dart';
+import '../../core/theme/app_colors.dart';
 import '../../l10n/generated/app_localizations.dart';
+import '../utils/sync_texts.dart';
 import 'collection_actions.dart';
 
 /// Plays [track]; with [queue], the queue becomes that list (album, search
@@ -29,8 +33,7 @@ enum _TrackAction {
   like,
   addToPlaylist,
   removeFromPlaylist,
-  album,
-  artist,
+  delete,
 }
 
 /// Context menu for a track (long press / right click): queue, likes,
@@ -107,23 +110,19 @@ Future<void> showTrackMenu(
             title: Text(l10n.removeFromPlaylist),
           ),
         ),
-      const PopupMenuDivider(),
-      if (track.album.isNotEmpty)
+      if (!track.isRemote) ...[
+        const PopupMenuDivider(),
         PopupMenuItem(
-          value: _TrackAction.album,
+          value: _TrackAction.delete,
           child: ListTile(
-            leading: const Icon(Icons.album_outlined),
-            title: Text(l10n.goToAlbum),
+            leading: const Icon(
+              Icons.delete_outline_rounded,
+              color: AppColors.error,
+            ),
+            title: Text(l10n.deleteFromDevice),
           ),
         ),
-      if (track.artist.isNotEmpty)
-        PopupMenuItem(
-          value: _TrackAction.artist,
-          child: ListTile(
-            leading: const Icon(Icons.person_outline_rounded),
-            title: Text(l10n.goToArtist),
-          ),
-        ),
+      ],
     ],
   );
   if (action == null || !context.mounted) return;
@@ -136,8 +135,10 @@ Future<void> showTrackMenu(
           listen: false,
         ).read(syncServiceProvider).saveToDevice(track.id);
         messenger.showSnackBar(SnackBar(content: Text(l10n.savedToDevice)));
-      } on Exception catch (e) {
-        messenger.showSnackBar(SnackBar(content: Text('$e')));
+      } on SyncException catch (e) {
+        messenger.showSnackBar(
+          SnackBar(content: Text(l10n.syncFailure(e.reason))),
+        );
       }
     case _TrackAction.playNext:
       await player.playNext(track);
@@ -151,9 +152,45 @@ Future<void> showTrackMenu(
       await showAddToPlaylistSheet(context, [track]);
     case _TrackAction.removeFromPlaylist:
       onRemoveFromPlaylist!();
-    case _TrackAction.album:
-      openAlbum(context, track.albumKey);
-    case _TrackAction.artist:
-      openArtist(context, track.artist);
+    case _TrackAction.delete:
+      await deleteFromDevice(context, track);
   }
+}
+
+/// Asks, then deletes [track]'s file from this device (see
+/// LibraryRepository.forgetLocalFiles for what is kept).
+Future<void> deleteFromDevice(BuildContext context, LibraryTrack track) async {
+  final l10n = AppLocalizations.of(context);
+  final messenger = ScaffoldMessenger.of(context);
+  final container = ProviderScope.containerOf(context, listen: false);
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      content: Text(l10n.deleteFromDeviceConfirm(track.title)),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: Text(l10n.cancel),
+        ),
+        FilledButton(
+          style: FilledButton.styleFrom(backgroundColor: AppColors.error),
+          onPressed: () => Navigator.pop(context, true),
+          child: Text(l10n.delete),
+        ),
+      ],
+    ),
+  );
+  if (confirmed != true) return;
+
+  final repository = container.read(libraryRepositoryProvider);
+  final paths = await repository.filesOf(track.id);
+  for (final path in paths) {
+    await container.read(playerServiceProvider).removeTrack(path);
+  }
+  if (!await const FileDeleter().delete(paths)) {
+    messenger.showSnackBar(SnackBar(content: Text(l10n.deleteFailed)));
+    return;
+  }
+  await repository.forgetLocalFiles(track.id);
+  messenger.showSnackBar(SnackBar(content: Text(l10n.deletedFromDevice)));
 }

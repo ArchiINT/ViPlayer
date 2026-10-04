@@ -41,7 +41,7 @@ class GlassPanel extends StatelessWidget {
 }
 
 /// A glass card holding a group of rows (settings, folders), with hairline
-/// separators between list tiles.
+/// separators between rows (not before free-form [Padding] blocks).
 class GlassGroup extends StatelessWidget {
   const GlassGroup({super.key, required this.children});
 
@@ -54,7 +54,7 @@ class GlassGroup extends StatelessWidget {
       child: Column(
         children: [
           for (var i = 0; i < children.length; i++) ...[
-            if (i > 0 && children[i] is ListTile)
+            if (i > 0 && children[i] is! Padding)
               const Divider(indent: 56, endIndent: 16),
             children[i],
           ],

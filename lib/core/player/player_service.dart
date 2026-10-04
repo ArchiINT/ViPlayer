@@ -70,6 +70,7 @@ class PlayerService {
       _backend.repeat.listen((v) => _update(_state.copyWith(repeat: v))),
       _backend.volume.listen((v) => _update(_state.copyWith(volume: v))),
       _backend.duration.listen(_onDuration),
+      _backend.position.listen((p) => _lastPosition = p),
     ]);
     _saveTimer = Timer.periodic(_saveInterval, (_) => _saveSession());
   }
@@ -86,6 +87,14 @@ class PlayerService {
 
   static final _random = math.Random();
   static const _sessionKey = 'player.session';
+  static const _resumeKey = 'player.resume';
+  static const _maxResumeEntries = 200;
+
+  /// Long audio (books, podcasts) resumes where it was left; set by the
+  /// app from the "long audio" setting. Null: nothing resumes.
+  bool Function(LibraryTrack track)? isLong;
+
+  Duration _lastPosition = Duration.zero;
   static const _saveInterval = Duration(seconds: 5);
   static const _maxSavedQueue = 2000;
 
@@ -173,6 +182,16 @@ class PlayerService {
 
   Future<void> removeAt(int index) => _backend.remove(index);
 
+  /// Removes every queue entry playing [path] (its file is being deleted).
+  /// If it is the current track, playback moves on to the next one.
+  Future<void> removeTrack(String path) async {
+    final queue = _state.queue;
+    for (var i = queue.length - 1; i >= 0; i--) {
+      if (queue[i].path == path) await _backend.remove(i);
+    }
+    _tracksByPath.remove(path);
+  }
+
   /// Moves the entry at [from] so that it ends up at index [to].
   Future<void> reorder(int from, int to) async {
     if (from == to) return;
@@ -232,6 +251,7 @@ class PlayerService {
   void _saveSession() {
     final s = _state;
     if (s.current == null) return;
+    _rememberResume(s.current, _backend.currentPosition);
     // Keep the saved queue bounded, centred on the current track.
     final start = (s.index - _maxSavedQueue ~/ 2).clamp(0, s.queue.length);
     final end = (start + _maxSavedQueue).clamp(0, s.queue.length);
@@ -272,6 +292,7 @@ class PlayerService {
         ? playlist.index
         : queue.indexOf(current);
     final trackChanged = current?.id != _state.current?.id;
+    if (trackChanged) _rememberResume(_state.current, _lastPosition);
     _update(
       _state.copyWith(
         queue: queue,
@@ -279,7 +300,67 @@ class PlayerService {
         duration: trackChanged ? Duration.zero : null,
       ),
     );
-    if (trackChanged) _saveSession();
+    if (trackChanged) {
+      _saveSession();
+      if (current != null) _resumeIfSaved(current);
+    }
+  }
+
+  // ------------------------------------------------------- long audio resume
+
+  Map<String, int> _resumePositions() {
+    final raw = _prefs.getString(_resumeKey);
+    if (raw == null) return {};
+    try {
+      return (jsonDecode(raw) as Map<String, Object?>).map(
+        (k, v) => MapEntry(k, (v! as num).toInt()),
+      );
+    } on Object {
+      return {};
+    }
+  }
+
+  /// Where [trackId] was left, if it is long audio started before.
+  Duration? resumePositionOf(String trackId) =>
+      switch (_resumePositions()[trackId]) {
+        final int ms => Duration(milliseconds: ms),
+        null => null,
+      };
+
+  void _rememberResume(LibraryTrack? track, Duration position) {
+    if (track == null || !(isLong?.call(track) ?? false)) return;
+    final positions = _resumePositions();
+    final finished =
+        track.durationMs > 0 &&
+        position.inMilliseconds >= track.durationMs - 30000;
+    if (finished) {
+      positions.remove(track.id); // next time starts from the beginning
+    } else if (position > const Duration(seconds: 10)) {
+      positions
+        ..remove(track.id)
+        ..[track.id] = position.inMilliseconds; // re-added = newest
+    } else {
+      // Near the start (or the engine already reset the position while
+      // switching tracks): keep whatever was saved.
+      return;
+    }
+    while (positions.length > _maxResumeEntries) {
+      positions.remove(positions.keys.first);
+    }
+    unawaited(_prefs.setString(_resumeKey, jsonEncode(positions)));
+  }
+
+  void _resumeIfSaved(LibraryTrack track) {
+    if (!(isLong?.call(track) ?? false)) return;
+    final saved = resumePositionOf(track.id);
+    if (saved == null) return;
+    // Seek once the file is loaded (its duration is known).
+    unawaited(
+      _backend.duration
+          .firstWhere((d) => d > Duration.zero)
+          .timeout(const Duration(seconds: 5))
+          .then((_) => _backend.seek(saved), onError: (Object _) {}),
+    );
   }
 
   void _onDuration(Duration duration) {

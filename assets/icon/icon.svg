@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- Full icon (desktop, legacy Android): background + mark on a rounded
+       square, mark scaled up a little since there is no adaptive mask. -->
+  <defs>
+    <clipPath id="round"><rect width="1024" height="1024" rx="224"/></clipPath>
+  </defs>
+  <g clip-path="url(#round)">
+    <image href="background.svg" width="1024" height="1024"/>
+    <image href="foreground.svg" x="-128" y="-128" width="1280" height="1280"/>
+  </g>
+</svg>

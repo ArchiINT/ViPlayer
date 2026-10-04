@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:drift/drift.dart' show Variable;
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -13,6 +12,7 @@ import '../download/download_service.dart';
 import '../library/library_models.dart';
 import '../library/library_providers.dart';
 import '../platform/app_directories.dart';
+import '../platform/app_log.dart';
 import '../platform/device_id.dart';
 import '../settings/settings_providers.dart';
 import 'peer_store.dart';
@@ -83,7 +83,7 @@ final syncBootstrapProvider = FutureProvider<void>((ref) async {
     }
     await service.start();
   } catch (e) {
-    debugPrint('LAN sync unavailable: $e');
+    AppLog.error('LAN sync unavailable', e);
   }
 });
 

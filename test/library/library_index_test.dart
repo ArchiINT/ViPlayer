@@ -99,38 +99,13 @@ void main() {
       _track('4', title: 'Чёрный лёд', artist: 'Кибер Волна', addedAt: 9),
     ]);
 
-    test('groups albums by album artist, ordered by track number', () {
-      expect(index.albums, hasLength(1));
-      final album = index.albums.single;
-      expect(album.artist, 'Synth Rider');
-      expect(album.year, 2077);
-      expect(album.tracks.map((t) => t.id), ['2', '1', '3']);
-    });
-
-    test('tracks without an album are not grouped into albums', () {
-      expect(
-        index.albums.expand((a) => a.tracks).map((t) => t.id),
-        isNot(contains('4')),
-      );
-    });
-
-    test('lists artists with their albums', () {
-      expect(index.artists.map((a) => a.name), [
-        'Guest',
-        'Synth Rider',
-        'Кибер Волна',
-      ]);
-      expect(index.artistByName('synth rider')!.albums, hasLength(1));
-    });
-
     test('search matches word prefixes across fields and scripts', () {
-      expect(index.search('neo ra').tracks.map((t) => t.id), ['1']);
-      expect(index.search('night').albums, hasLength(1));
-      expect(index.search('night').tracks, hasLength(3));
-      expect(index.search('чёрн').tracks.single.id, '4');
-      expect(index.search('кибер').artists.single.name, 'Кибер Волна');
-      expect(index.search('eon').isEmpty, isTrue); // prefixes only
-      expect(index.search('   ').isEmpty, isTrue);
+      expect(index.search('neo ra').map((t) => t.id), ['1']);
+      expect(index.search('night'), hasLength(3)); // album name
+      expect(index.search('чёрн').single.id, '4');
+      expect(index.search('кибер').single.id, '4'); // artist
+      expect(index.search('eon'), isEmpty); // prefixes only
+      expect(index.search('   '), isEmpty);
     });
 
     test('sorting', () {

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- AppColors.base in lib/core/theme/app_colors.dart -->
+    <color name="viplayer_canvas">#0B0C10</color>
+</resources>

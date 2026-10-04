@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- audio_service looks these icons up by name at run time; keep them from
+     being removed by resource shrinking. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/vp_*,@drawable/audio_service_*" />

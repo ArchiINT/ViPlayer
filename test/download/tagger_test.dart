@@ -82,4 +82,26 @@ void main() {
     await const DartTagger().write(file, tags);
     expectTags(file);
   });
+
+  // SoundCloud often serves MP3s with no ID3 tag at all; the tag library
+  // silently dropped the cover for those (found on a user's phone).
+  test('dart tagger: mp3 without any ID3 tag gets tags and cover', () async {
+    final file = await copy('test/fixtures/edge/raw_no_id3.mp3', 'mp3');
+    expect(String.fromCharCodes(file.readAsBytesSync().take(3)), isNot('ID3'));
+    await const DartTagger().write(file, tags);
+    expectTags(file);
+    expect(readMetadata(file).duration!.inMilliseconds, closeTo(2000, 300));
+  });
+
+  test('dart tagger: rewriting an mp3 replaces the old tag', () async {
+    final file = await copy('test/fixtures/audio/black_ice.mp3', 'mp3');
+    await const DartTagger().write(file, tags);
+    await const DartTagger().write(
+      file,
+      TrackTags(title: 'Second', artist: 'Again', cover: tags.cover),
+    );
+    final m = readMetadata(file, getImage: true);
+    expect(m.title, 'Second');
+    expect(m.pictures, hasLength(1));
+  });
 }

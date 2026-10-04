@@ -21,6 +21,8 @@ class SettingsController extends Notifier<AppSettings> {
   static const _accentKey = 'settings.accent';
   static const _scanDeviceMusicKey = 'settings.scanDeviceMusic';
   static const _downloadFormatKey = 'settings.downloadFormat';
+  static const _minTrackKey = 'settings.minTrackSeconds';
+  static const _longAudioKey = 'settings.longAudioMinutes';
 
   SharedPreferences get _prefs => ref.read(sharedPreferencesProvider);
 
@@ -32,6 +34,8 @@ class SettingsController extends Notifier<AppSettings> {
     downloadFormat: DownloadFormat.fromName(
       _prefs.getString(_downloadFormatKey),
     ),
+    minTrackSeconds: _prefs.getInt(_minTrackKey) ?? 0,
+    longAudioMinutes: _prefs.getInt(_longAudioKey) ?? 20,
   );
 
   Future<void> setLanguage(AppLanguage language) async {
@@ -52,5 +56,15 @@ class SettingsController extends Notifier<AppSettings> {
   Future<void> setDownloadFormat(DownloadFormat format) async {
     state = state.copyWith(downloadFormat: format);
     await _prefs.setString(_downloadFormatKey, format.name);
+  }
+
+  Future<void> setMinTrackSeconds(int seconds) async {
+    state = state.copyWith(minTrackSeconds: seconds);
+    await _prefs.setInt(_minTrackKey, seconds);
+  }
+
+  Future<void> setLongAudioMinutes(int minutes) async {
+    state = state.copyWith(longAudioMinutes: minutes);
+    await _prefs.setInt(_longAudioKey, minutes);
   }
 }
