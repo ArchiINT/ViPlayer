@@ -40,7 +40,7 @@ void main() {
     expect(results, isNotEmpty);
   }, timeout: timeout);
 
-  test('SoundCloud: resolve track and download MP3', () async {
+  test('SoundCloud: resolve track and download audio', () async {
     final link = await soundcloud.resolve(
       'https://soundcloud.com/nocopyrightsounds/angelrot-backtoback-ncs',
     );
@@ -49,9 +49,14 @@ void main() {
     expect(track.title, 'backtoback');
     expect(track.coverUrl, contains('t500x500'));
 
-    final file = File('${temp.path}/sc.mp3');
-    await soundcloud.downloadAudio(track.sourceId, file);
+    final file = await soundcloud.downloadAudio(track.sourceId, temp);
     expect(file.lengthSync(), greaterThan(1000000));
+
+    // Search keeps only tracks that can be fetched in full.
+    final found = await soundcloud.search('NCS angelrot');
+    expect(found, isNotEmpty);
+    final preview = await soundcloud.stream(found.first.sourceId);
+    expect(preview.url, startsWith('https://'));
   }, timeout: timeout);
 
   test('Spotify: track and album metadata, matched on YouTube', () async {

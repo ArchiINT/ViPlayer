@@ -57,6 +57,8 @@ android {
 
     buildTypes {
         release {
+            // Adds to Flutter's own rules (reflection in PlaybackServiceChannel).
+            proguardFiles("proguard-rules.pro")
             signingConfig = if (hasReleaseKeystore) {
                 signingConfigs.getByName("release")
             } else {

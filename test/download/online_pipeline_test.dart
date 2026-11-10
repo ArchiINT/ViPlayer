@@ -129,8 +129,10 @@ void main() {
     );
     await phone.download(sc.items.single, format: DownloadFormat.m4a);
     final track = (await library.watchTracks().first).single;
-    expect(p.extension(track.path), '.mp3');
+    // HLS AAC since SoundCloud dropped progressive MP3 (2025).
+    expect(p.extension(track.path), anyOf('.mp3', '.m4a'));
     expect(track.title, 'backtoback');
+    expect(track.durationMs, greaterThan(100000));
     expect(track.coverPath, isNotNull);
 
     final yt = await phone.resolve('https://youtu.be/vg95MYlTb3c');
@@ -164,12 +166,9 @@ void main() {
     await service.download(yt.items.first, format: DownloadFormat.m4a);
     expect(sw.elapsed, lessThan(const Duration(seconds: 5)));
 
-    // SoundCloud: direct stream, past the first megabyte.
+    // SoundCloud: a direct MP3 or an HLS playlist the player opens.
     final scPreview = await service.preview(sc.items.first);
-    final r = await client.get(
-      Uri.parse(scPreview.url),
-      headers: {'Range': 'bytes=1500000-1600000'},
-    );
-    expect(r.statusCode, anyOf(200, 206));
+    final r = await client.get(Uri.parse(scPreview.url));
+    expect(r.statusCode, 200);
   }, timeout: timeout);
 }

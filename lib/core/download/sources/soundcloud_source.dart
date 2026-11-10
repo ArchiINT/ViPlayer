@@ -51,8 +51,9 @@ class SoundCloudSource {
     }
   }
 
-  /// Tracks matching [query]. Previews-only uploads (SoundCloud Go+ "snips")
-  /// and blocked ones are left out: they cannot be downloaded in full.
+  /// Tracks matching [query]. Previews-only uploads (SoundCloud Go+ "snips"),
+  /// blocked ones and DRM-only ones are left out: they cannot be downloaded
+  /// in full.
   Future<List<DownloadCandidate>> search(String query, {int limit = 20}) async {
     final data = await _apiObject('/search/tracks', {
       'q': query,
@@ -62,48 +63,98 @@ class SoundCloudSource {
       for (final t
           in (data['collection'] as List<Object?>? ?? const [])
               .cast<Map<String, Object?>>())
-        if (t['policy'] != 'SNIP' && t['policy'] != 'BLOCK') _candidate(t),
+        if (t['policy'] != 'SNIP' &&
+            t['policy'] != 'BLOCK' &&
+            _transcoding(t) != null)
+          _candidate(t),
     ];
   }
 
-  /// Direct MP3 stream of track [id] (previews and downloads).
-  Future<PreviewStream> stream(String id) async {
+  /// Stream of track [id] for previews: a direct MP3 or an HLS playlist
+  /// (the player handles both).
+  Future<PreviewStream> stream(String id) async =>
+      PreviewStream((await _stream(id)).url);
+
+  /// Downloads track [id] into [directory]: `audio.mp3` from a progressive
+  /// stream, or `audio.m4a` assembled from HLS segments.
+  Future<File> downloadAudio(
+    String id,
+    Directory directory, {
+    void Function(double progress)? onProgress,
+  }) async {
+    final (:url, :hls) = await _stream(id);
+    final target = File('${directory.path}/audio.${hls ? 'm4a' : 'mp3'}');
+    if (hls) {
+      await downloadHls(_http, Uri.parse(url), target, onProgress: onProgress);
+    } else {
+      await downloadWhole(
+        _http,
+        Uri.parse(url),
+        target,
+        onProgress: onProgress,
+      );
+    }
+    return target;
+  }
+
+  Future<({String url, bool hls})> _stream(String id) async {
     final track = await _apiObject('/tracks/$id', const {});
-    final transcodings =
-        ((track['media'] as Map<String, Object?>?)?['transcodings']
-                    as List<Object?>? ??
-                const [])
-            .cast<Map<String, Object?>>();
-    final progressive = transcodings.where(
-      (t) => (t['format'] as Map<String, Object?>)['protocol'] == 'progressive',
-    );
-    if (progressive.isEmpty) {
+    final transcoding = _transcoding(track);
+    if (transcoding == null) {
       throw const DownloadException(
         DownloadFailure.failed,
         'this track has no downloadable stream',
       );
     }
+    final auth = track['track_authorization'] as String?;
     final streamInfo = jsonDecode(
       await fetchText(
         _http,
-        Uri.parse(progressive.first['url']! as String)
-            .replace(queryParameters: {'client_id': await _getClientId()}),
+        Uri.parse(transcoding['url']! as String).replace(
+          queryParameters: {
+            'client_id': await _getClientId(),
+            'track_authorization': ?auth,
+          },
+        ),
       ),
     ) as Map<String, Object?>;
-    return PreviewStream(streamInfo['url']! as String);
+    final protocol =
+        (transcoding['format'] as Map<String, Object?>)['protocol'];
+    return (url: streamInfo['url']! as String, hls: protocol == 'hls');
   }
 
-  /// Downloads track [id] as MP3 (SoundCloud's progressive stream).
-  Future<void> downloadAudio(
-    String id,
-    File target, {
-    void Function(double progress)? onProgress,
-  }) async => downloadWhole(
-    _http,
-    Uri.parse((await stream(id)).url),
-    target,
-    onProgress: onProgress,
-  );
+  /// How track [t] can be fetched: a progressive MP3 where SoundCloud still
+  /// offers one (rare since 2025), else unencrypted HLS AAC, best quality
+  /// first. Encrypted HLS is DRM and the adaptive "abr" playlist answers
+  /// 404, so neither counts. Null when nothing usable is left.
+  static Map<String, Object?>? _transcoding(Map<String, Object?> t) {
+    final all =
+        ((t['media'] as Map<String, Object?>?)?['transcodings']
+                    as List<Object?>? ??
+                const [])
+            .cast<Map<String, Object?>>();
+    String? field(Map<String, Object?> x, String key) =>
+        (x['format'] as Map<String, Object?>?)?[key] as String?;
+    final progressive = all.where((x) => field(x, 'protocol') == 'progressive');
+    final hlsAac =
+        all
+            .where(
+              (x) =>
+                  field(x, 'protocol') == 'hls' &&
+                  (field(x, 'mime_type') ?? '').startsWith('audio/mp4'),
+            )
+            .toList()
+          ..sort((a, b) => _kbps(b).compareTo(_kbps(a)));
+    return progressive.firstOrNull ?? hlsAac.firstOrNull;
+  }
+
+  /// Bitrate from a preset name like `aac_160k` (0 when unknown).
+  static int _kbps(Map<String, Object?> transcoding) =>
+      int.tryParse(
+        RegExp(r'(\d+)k').firstMatch('${transcoding['preset']}')?.group(1) ??
+            '',
+      ) ??
+      0;
 
   // Short links (on.soundcloud.com/xyz) redirect to the real URL.
   Future<String> _expand(String url) async {

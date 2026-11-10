@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:audio_service/audio_service.dart';
+import 'package:flutter/services.dart';
 
 import '../platform/app_log.dart';
 import 'audio_backend.dart';
@@ -18,6 +20,15 @@ class ViAudioHandler extends BaseAudioHandler with SeekHandler {
   final PlayerService _player;
   String? _lastTrackId;
 
+  /// Android keeps the app a foreground service during a pause: Android 16
+  /// mutes apps that start playing from the background, which is exactly
+  /// what resuming after a call / TikTok / a notification is. A long pause
+  /// leaves the foreground (and releases the wake lock); the notification
+  /// stays, and playing again re-enters the foreground.
+  static const releaseAfterPause = Duration(minutes: 10);
+  static const _serviceChannel = MethodChannel('viplayer/playback_service');
+  Timer? _releaseTimer;
+
   static const _shuffleAction = 'viplayer.shuffle';
   static const _repeatAction = 'viplayer.repeat';
 
@@ -31,8 +42,8 @@ class ViAudioHandler extends BaseAudioHandler with SeekHandler {
           // Also shown as the player's name by MPRIS on Linux.
           androidNotificationChannelId: 'ViPlayer',
           androidNotificationChannelName: 'Playback',
-          androidNotificationOngoing: true,
-          androidStopForegroundOnPause: true,
+          // Stay foreground while paused (see [releaseAfterPause]).
+          androidStopForegroundOnPause: false,
         ),
       );
     } catch (error) {
@@ -43,6 +54,23 @@ class ViAudioHandler extends BaseAudioHandler with SeekHandler {
   void _sync() {
     final s = _player.snapshot.value;
     final track = s.current;
+
+    if (s.playing) {
+      _releaseTimer?.cancel();
+      _releaseTimer = null;
+    } else if (Platform.isAndroid && _releaseTimer == null) {
+      _releaseTimer = Timer(releaseAfterPause, () {
+        if (_player.snapshot.value.playing) return;
+        unawaited(
+          _serviceChannel
+              .invokeMethod<bool>('releaseForeground')
+              .catchError((Object e) {
+                AppLog.error('leaving foreground after a pause', e);
+                return false;
+              }),
+        );
+      });
+    }
 
     if (track?.id != _lastTrackId) {
       _lastTrackId = track?.id;

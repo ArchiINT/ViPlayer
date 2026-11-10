@@ -15,6 +15,7 @@ class MainActivity : AudioServiceActivity() {
             it.register(flutterEngine)
         }
         NetworkChannel(applicationContext).register(flutterEngine)
+        PlaybackServiceChannel().register(flutterEngine)
     }
 
     @Deprecated("Needed for startIntentSenderForResult (MediaStore delete)")

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -75,6 +76,107 @@ Future<void> downloadWhole(
   } finally {
     await sink.close();
   }
+}
+
+/// Downloads an HLS stream of fragmented MP4 (an init segment plus media
+/// segments, as SoundCloud serves AAC) into [target] as one .m4a file.
+/// Progress (0..1) is reported per segment.
+Future<void> downloadHls(
+  http.Client client,
+  Uri playlist,
+  File target, {
+  void Function(double progress)? onProgress,
+}) async {
+  final text = await fetchText(client, playlist);
+  final init = RegExp(r'#EXT-X-MAP:URI="([^"]+)"').firstMatch(text)?.group(1);
+  final segments = <Uri>[];
+  var seconds = 0.0;
+  for (final line in LineSplitter.split(text)) {
+    if (line.startsWith('#EXTINF:')) {
+      seconds += double.tryParse(line.substring(8).split(',').first) ?? 0;
+    } else if (line.isNotEmpty && !line.startsWith('#')) {
+      segments.add(playlist.resolve(line));
+    }
+  }
+  if (init == null || segments.isEmpty || text.contains('#EXT-X-KEY')) {
+    throw const DownloadException(
+      DownloadFailure.failed,
+      'unsupported stream format',
+    );
+  }
+
+  final sink = target.openWrite();
+  try {
+    final head = await _fetchSegment(client, playlist.resolve(init));
+    sink.add(_withDuration(head, seconds));
+    // A few segments at a time: one by one is slow, all at once floods
+    // the connection.
+    const parallel = 4;
+    for (var i = 0; i < segments.length; i += parallel) {
+      final batch = await Future.wait([
+        for (final s in segments.skip(i).take(parallel))
+          _fetchSegment(client, s),
+      ]);
+      batch.forEach(sink.add);
+      onProgress?.call((i + batch.length) / segments.length);
+    }
+  } finally {
+    await sink.close();
+  }
+}
+
+Future<Uint8List> _fetchSegment(http.Client client, Uri url) async {
+  final http.Response response;
+  try {
+    response = await client
+        .get(url, headers: {'User-Agent': browserUserAgent})
+        .timeout(const Duration(seconds: 30));
+  } on Exception catch (e) {
+    throw DownloadException(DownloadFailure.network, '$e');
+  }
+  if (response.statusCode >= 400) {
+    throw DownloadException(
+      DownloadFailure.network,
+      'HTTP ${response.statusCode} for ${url.host}',
+    );
+  }
+  return response.bodyBytes;
+}
+
+/// Fragmented MP4 leaves the total duration in `mvhd` at 0 (it is spread
+/// over the fragments); tag readers then report 0:00. Writes [seconds]
+/// there when it is unset.
+Uint8List _withDuration(Uint8List head, double seconds) {
+  final at = _indexOf(head, latin1.encode('mvhd'));
+  if (at < 0) return head;
+  final init = Uint8List.fromList(head);
+  final data = ByteData.sublistView(init);
+  final body = at + 4;
+  final v1 = init[body] == 1;
+  final scaleAt = body + (v1 ? 20 : 12);
+  final durationAt = scaleAt + 4;
+  if (durationAt + (v1 ? 8 : 4) > init.length) return head;
+  final scale = data.getUint32(scaleAt);
+  final current = v1 ? data.getUint64(durationAt) : data.getUint32(durationAt);
+  if (current != 0 || scale == 0) return head;
+  final duration = (seconds * scale).round();
+  if (v1) {
+    data.setUint64(durationAt, duration);
+  } else {
+    data.setUint32(durationAt, duration.clamp(0, 0xFFFFFFFF));
+  }
+  return init;
+}
+
+int _indexOf(Uint8List bytes, List<int> pattern) {
+  outer:
+  for (var i = 0; i + pattern.length <= bytes.length; i++) {
+    for (var j = 0; j < pattern.length; j++) {
+      if (bytes[i + j] != pattern[j]) continue outer;
+    }
+    return i;
+  }
+  return -1;
 }
 
 /// Fetches a small binary resource (cover art). Null on any failure:

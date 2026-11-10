@@ -227,10 +227,9 @@ class DownloadService {
           cancel: cancel,
         );
       } else {
-        audio = File(p.join(work.path, 'audio.mp3'));
-        await _soundcloud.downloadAudio(
+        audio = await _soundcloud.downloadAudio(
           c.sourceId,
-          audio,
+          work,
           onProgress: progress,
         );
       }
