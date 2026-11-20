@@ -72,8 +72,10 @@ class SoundCloudSource {
 
   /// Stream of track [id] for previews: a direct MP3 or an HLS playlist
   /// (the player handles both).
-  Future<PreviewStream> stream(String id) async =>
-      PreviewStream((await _stream(id)).url);
+  Future<PreviewStream> stream(String id) async {
+    final (:url, :hls) = await _stream(id);
+    return PreviewStream(url, hls: hls);
+  }
 
   /// Downloads track [id] into [directory]: `audio.mp3` from a progressive
   /// stream, or `audio.m4a` assembled from HLS segments.

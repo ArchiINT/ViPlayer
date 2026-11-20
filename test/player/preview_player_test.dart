@@ -84,4 +84,52 @@ void main() {
     await preview.stop();
     expect(preview.state.value.key, isNull);
   });
+
+  test('stays loading until sound starts, fails if it never does', () async {
+    backend.startsPlaying = false;
+    final slow = PreviewPlayer(
+      backend,
+      startTimeout: const Duration(milliseconds: 50),
+    );
+    addTearDown(slow.dispose);
+
+    await slow.toggle(_c('a'), () => url('A'));
+    expect(slow.state.value.loading, isTrue, reason: 'opened, but silent');
+
+    await Future<void>.delayed(const Duration(milliseconds: 80));
+    expect(slow.state.value.loading, isFalse);
+    expect(slow.state.value.failure, DownloadFailure.network);
+  });
+
+  test('seeks within the playing preview, not while loading', () async {
+    await preview.toggle(_c('a'), () => url('A'));
+    await preview.seek(const Duration(seconds: 90));
+    expect(backend.seeks, [const Duration(seconds: 90)]);
+    expect(preview.state.value.position, const Duration(seconds: 90));
+
+    backend.startsPlaying = false;
+    await preview.toggle(_c('b'), () => url('B'));
+    await preview.seek(const Duration(seconds: 10));
+    expect(backend.seeks, hasLength(1));
+  });
+
+  test('split backend: HLS to one engine, the rest to the other', () async {
+    final main = FakePreviewBackend();
+    final hls = FakePreviewBackend();
+    final split = PreviewPlayer(SplitPreviewBackend(main, hls));
+    addTearDown(split.dispose);
+
+    await split.toggle(
+      _c('a'),
+      () async => const PreviewStream('A.m3u8', hls: true),
+    );
+    await split.toggle(_c('b'), () => url('B.mp3'));
+    expect(hls.opened, ['A.m3u8']);
+    expect(main.opened, ['B.mp3']);
+    expect(split.state.value.playing, isTrue);
+
+    // Events of the engine not in use are ignored.
+    hls.finish();
+    expect(split.state.value.key, 'soundcloud:b');
+  });
 }

@@ -11,9 +11,16 @@ ProviderContainer _container(BuildContext context) =>
     ProviderScope.containerOf(context, listen: false);
 
 Future<void> toggleLike(BuildContext context, LibraryTrack track) =>
+    setLike(context, track, liked: !track.liked);
+
+Future<void> setLike(
+  BuildContext context,
+  LibraryTrack track, {
+  required bool liked,
+}) =>
     _container(context)
         .read(collectionsRepositoryProvider)
-        .setLiked(track.id, liked: !track.liked);
+        .setLiked(track.id, liked: liked);
 
 /// Asks for a playlist name. Returns the trimmed name, or null if cancelled.
 Future<String?> showPlaylistNameDialog(

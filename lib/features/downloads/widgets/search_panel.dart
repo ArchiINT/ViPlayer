@@ -226,43 +226,143 @@ class _ResultTile extends StatelessWidget {
       onTap: () => onSelected(!selected),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        child: Row(
+        child: Column(
           children: [
-            _PreviewButton(candidate: c),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    c.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  Text(
-                    c.artist,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Text(
-              formatTrackDuration(c.durationMs),
-              style: const TextStyle(
-                fontFamily: AppFonts.mono,
-                fontSize: 12,
-                color: AppColors.textTertiary,
-              ),
-            ),
-            Checkbox(value: selected, onChanged: (v) => onSelected(v ?? false)),
+            _resultRow(c),
+            _PreviewSeekBar(candidate: c),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _resultRow(DownloadCandidate c) => Row(
+    children: [
+      _PreviewButton(candidate: c),
+      const SizedBox(width: 12),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              c.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            Text(
+              c.artist,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 13,
+              ),
+            ),
+          ],
+        ),
+      ),
+      Text(
+        formatTrackDuration(c.durationMs),
+        style: const TextStyle(
+          fontFamily: AppFonts.mono,
+          fontSize: 12,
+          color: AppColors.textTertiary,
+        ),
+      ),
+      Checkbox(value: selected, onChanged: (v) => onSelected(v ?? false)),
+    ],
+  );
+}
+
+/// Seek slider with times under the result being previewed; empty for the
+/// others. Only this widget rebuilds with the position. While dragging it
+/// shows the drag position and seeks on release (like the main SeekBar).
+class _PreviewSeekBar extends ConsumerStatefulWidget {
+  const _PreviewSeekBar({required this.candidate});
+
+  final DownloadCandidate candidate;
+
+  @override
+  ConsumerState<_PreviewSeekBar> createState() => _PreviewSeekBarState();
+}
+
+class _PreviewSeekBarState extends ConsumerState<_PreviewSeekBar> {
+  double? _dragMs;
+
+  @override
+  Widget build(BuildContext context) {
+    final key = PreviewPlayer.keyOf(widget.candidate);
+    final state = ref.watch(
+      previewStateProvider.select(
+        (s) => s.key == key && !s.loading && s.failure == null ? s : null,
+      ),
+    );
+    return AnimatedSize(
+      duration: AppMotion.normal,
+      curve: AppMotion.curve,
+      alignment: Alignment.topCenter,
+      child: state == null
+          ? const SizedBox(width: double.infinity)
+          : _bar(state),
+    );
+  }
+
+  Widget _bar(PreviewState state) {
+    // The engine may not know the length yet; the search result does.
+    final maxMs =
+        (state.duration > Duration.zero
+                ? state.duration.inMilliseconds
+                : widget.candidate.durationMs)
+            .toDouble();
+    final valueMs = (_dragMs ?? state.position.inMilliseconds.toDouble()).clamp(
+      0.0,
+      maxMs <= 0 ? 0.0 : maxMs,
+    );
+    const timeStyle = TextStyle(
+      fontFamily: AppFonts.mono,
+      fontSize: 11,
+      color: AppColors.textSecondary,
+    );
+    return Padding(
+      padding: const EdgeInsets.only(top: 2),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 40,
+            child: Text(formatTrackDuration(valueMs.round()), style: timeStyle),
+          ),
+          Expanded(
+            child: SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                trackHeight: 2,
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
+                overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+              ),
+              child: Slider(
+                max: maxMs <= 0 ? 1 : maxMs,
+                value: maxMs <= 0 ? 0 : valueMs,
+                onChanged: maxMs <= 0
+                    ? null
+                    : (v) => setState(() => _dragMs = v),
+                onChangeEnd: (v) {
+                  ref
+                      .read(previewPlayerProvider)
+                      .seek(Duration(milliseconds: v.round()));
+                  setState(() => _dragMs = null);
+                },
+              ),
+            ),
+          ),
+          SizedBox(
+            width: 40,
+            child: Text(
+              formatTrackDuration(maxMs.round()),
+              style: timeStyle,
+              textAlign: TextAlign.end,
+            ),
+          ),
+        ],
       ),
     );
   }

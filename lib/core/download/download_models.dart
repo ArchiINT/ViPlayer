@@ -129,12 +129,16 @@ class ResolvedLink {
 /// Where to stream a candidate from for a preview (no download).
 @immutable
 class PreviewStream {
-  const PreviewStream(this.url, {this.headers = const {}});
+  const PreviewStream(this.url, {this.headers = const {}, this.hls = false});
 
   final String url;
 
   /// Some streams only answer with the headers they were resolved with.
   final Map<String, String> headers;
+
+  /// An HLS playlist rather than a plain audio file (needs a player with
+  /// HLS support — see `SplitPreviewBackend`).
+  final bool hls;
 }
 
 /// A link the user cannot download from, with a reason the UI can show.

@@ -94,7 +94,11 @@ class DownloadJobsNotifier extends Notifier<List<DownloadJob>> {
 /// Preview playback for search results. Pauses the main player when a
 /// preview starts, and stops the preview when the main player starts.
 final previewPlayerProvider = Provider<PreviewPlayer>((ref) {
-  final preview = PreviewPlayer(MediaKitPreviewBackend());
+  final preview = PreviewPlayer(
+    Platform.isAndroid
+        ? SplitPreviewBackend(MediaKitPreviewBackend(), ExoPreviewBackend())
+        : MediaKitPreviewBackend(),
+  );
   final main = ref.watch(playerServiceProvider);
   preview.onStart = main.pause;
   void onMain() {
