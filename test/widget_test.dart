@@ -333,8 +333,9 @@ void main() {
     await tester.tap(find.byTooltip('Play next').first);
     await tester.pumpAndSettle();
 
+    // Right after the current track; the automatic tracks follow.
     expect(
-      [for (final t in app.player.snapshot.value.queue) t.title],
+      [for (final t in app.player.snapshot.value.queue.take(2)) t.title],
       ['Neon Rain', 'Ghost Signal'],
     );
 

@@ -115,7 +115,6 @@ class ViAudioHandler extends BaseAudioHandler with SeekHandler {
           MediaControl.custom(
             androidIcon: switch (s.repeat) {
               PlaybackRepeat.off => 'drawable/vp_repeat_off',
-              PlaybackRepeat.all => 'drawable/vp_repeat_all',
               PlaybackRepeat.one => 'drawable/vp_repeat_one',
             },
             label: 'Repeat',
@@ -135,7 +134,6 @@ class ViAudioHandler extends BaseAudioHandler with SeekHandler {
             : AudioServiceShuffleMode.none,
         repeatMode: switch (s.repeat) {
           PlaybackRepeat.off => AudioServiceRepeatMode.none,
-          PlaybackRepeat.all => AudioServiceRepeatMode.all,
           PlaybackRepeat.one => AudioServiceRepeatMode.one,
         },
       ),
@@ -190,9 +188,8 @@ class ViAudioHandler extends BaseAudioHandler with SeekHandler {
   @override
   Future<void> setRepeatMode(AudioServiceRepeatMode repeatMode) async {
     final wanted = switch (repeatMode) {
-      AudioServiceRepeatMode.none => PlaybackRepeat.off,
       AudioServiceRepeatMode.one => PlaybackRepeat.one,
-      _ => PlaybackRepeat.all,
+      _ => PlaybackRepeat.off, // no "repeat all": the queue never ends
     };
     while (_player.snapshot.value.repeat != wanted) {
       await _player.cycleRepeat();

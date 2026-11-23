@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../library/library_models.dart';
 import 'audio_backend.dart';
+import 'play_order.dart';
 
 /// Everything the UI shows about playback except the position, which
 /// changes many times per second and has its own stream.
@@ -22,7 +23,7 @@ class PlayerSnapshot {
     this.volume = 100,
   });
 
-  /// In play order (shuffled if [shuffle] is on).
+  /// In play order: recently played, the current track, then up next.
   final List<LibraryTrack> queue;
   final int index;
   final bool playing;
@@ -59,14 +60,17 @@ class PlayerSnapshot {
 /// app restarts. Plain Dart (no Flutter widgets), shared by the UI and the
 /// system media controls (see ViAudioHandler).
 ///
-/// The engine owns the play order (it shuffles and repeats natively, which
-/// keeps playback gapless); this class maps engine paths back to tracks.
+/// The queue is endless: after the current track there are always at least
+/// [upNextTarget] tracks, topped up from the list playback started from
+/// ([PlayOrder], in order or shuffled). Tracks the user adds come on top and
+/// are never trimmed; only the automatic part is refilled. The engine plays
+/// this queue as a plain playlist (gapless); this class maps its paths back
+/// to tracks.
 class PlayerService {
   PlayerService(this._backend, this._prefs) {
     _subscriptions.addAll([
       _backend.playlist.listen(_onPlaylist),
       _backend.playing.listen((v) => _update(_state.copyWith(playing: v))),
-      _backend.shuffle.listen((v) => _update(_state.copyWith(shuffle: v))),
       _backend.repeat.listen((v) => _update(_state.copyWith(repeat: v))),
       _backend.volume.listen((v) => _update(_state.copyWith(volume: v))),
       _backend.duration.listen(_onDuration),
@@ -84,6 +88,12 @@ class PlayerService {
 
   /// "Previous" restarts the current track if it has played longer than this.
   static const restartThreshold = Duration(seconds: 3);
+
+  /// Tracks kept after the current one (more if the user added them).
+  static const upNextTarget = 20;
+
+  /// Played tracks kept before the current one, for "previous".
+  static const historyKept = 50;
 
   static final _random = math.Random();
   static const _sessionKey = 'player.session';
@@ -104,6 +114,24 @@ class PlayerService {
   /// Engine path -> track, for every track handed to the engine.
   final _tracksByPath = <String, LibraryTrack>{};
 
+  /// Where automatic tracks come from; null before anything was played.
+  PlayOrder? _order;
+
+  /// The engine's playlist as this class last changed it. The engine
+  /// reports changes asynchronously, so queue arithmetic uses this model,
+  /// never the last report: [_paths], per entry whether the user added it
+  /// ([_manual], kept when the automatic part is rebuilt), and the current
+  /// entry ([_index], also moved by the engine as tracks end).
+  List<String> _paths = [];
+  List<bool> _manual = [];
+  int _index = -1;
+
+  /// Queue changes in flight; while > 0 engine reports may be stale.
+  int _changing = 0;
+
+  /// Serialises queue changes (each one inspects the result of the last).
+  Future<void> _filling = Future.value();
+
   final _snapshot = ValueNotifier(const PlayerSnapshot());
   PlayerSnapshot get _state => _snapshot.value;
 
@@ -113,33 +141,53 @@ class PlayerService {
 
   // ---------------------------------------------------------------- control
 
-  /// Replaces the queue with [tracks] and plays [startIndex].
+  /// Plays [tracks] from [startIndex]; they become the source of the
+  /// automatic queue (in order or shuffled, as the shuffle button is).
   Future<void> playQueue(
     List<LibraryTrack> tracks, {
     int startIndex = 0,
   }) async {
     if (tracks.isEmpty) return;
     _remember(tracks);
-    // A fresh queue starts in order; shuffle stays as the user left it.
-    final shuffled = _state.shuffle;
-    if (shuffled) await _backend.setShuffle(false);
-    await _backend.open([for (final t in tracks) t.path], index: startIndex);
-    if (shuffled) await _backend.setShuffle(true);
+    final paths = [for (final t in tracks) t.path];
+    final start = startIndex.clamp(0, paths.length - 1);
+    final shuffle = _state.shuffle;
+    _order = PlayOrder(paths, shuffle: shuffle, start: start);
+    // In order, the tracks before the start can be gone back to.
+    final history = shuffle
+        ? const <String>[]
+        : paths.sublist(math.max(0, start - historyKept), start);
+    final queue = [...history, paths[start], ..._order!.take(upNextTarget)];
+    await _queued(() {
+      _paths = queue;
+      _manual = List.filled(queue.length, false, growable: true);
+      _index = history.length;
+      return _backend.open(queue, index: history.length);
+    });
+    await _topUp();
   }
 
   /// Plays [tracks] in random order (turns shuffle on).
   Future<void> shufflePlay(List<LibraryTrack> tracks) async {
     if (tracks.isEmpty) return;
-    if (!_state.shuffle) await _backend.setShuffle(true);
+    _update(_state.copyWith(shuffle: true));
     await playQueue(tracks, startIndex: _random.nextInt(tracks.length));
   }
 
   Future<void> playOrPause() => _backend.playOrPause();
   Future<void> play() => _backend.play();
   Future<void> pause() => _backend.pause();
-  Future<void> next() => _backend.next();
   Future<void> seek(Duration position) => _backend.seek(position);
-  Future<void> jumpTo(int index) => _backend.jump(index);
+
+  Future<void> next() async {
+    await _backend.next();
+    await _topUp();
+  }
+
+  Future<void> jumpTo(int index) async {
+    await _backend.jump(index);
+    await _topUp();
+  }
 
   /// Restarts the current track if it has been playing for a while,
   /// otherwise goes to the previous one — like every music player.
@@ -151,12 +199,28 @@ class PlayerService {
     }
   }
 
-  Future<void> toggleShuffle() => _backend.setShuffle(!_state.shuffle);
+  /// Switches between in-order and shuffled play. The automatic part of up
+  /// next is rebuilt from the current track; tracks the user added stay.
+  Future<void> toggleShuffle() async {
+    final shuffle = !_state.shuffle;
+    _update(_state.copyWith(shuffle: shuffle));
+    final order = _order;
+    final current = _state.current;
+    if (order == null || current == null) return;
+    order.setShuffle(shuffle, current: current.path);
+    await _queued(() async {
+      for (var i = _paths.length - 1; i > _index; i--) {
+        if (!_manual[i]) await _removeEntry(i);
+      }
+    });
+    await _topUp();
+  }
 
-  /// off -> all -> one -> off
+  /// off -> one -> off. (There is no "repeat all": the queue never ends.)
   Future<void> cycleRepeat() => _backend.setRepeat(
-    PlaybackRepeat.values[(_state.repeat.index + 1) %
-        PlaybackRepeat.values.length],
+    _state.repeat == PlaybackRepeat.off
+        ? PlaybackRepeat.one
+        : PlaybackRepeat.off,
   );
 
   Future<void> setVolume(double volume) =>
@@ -164,32 +228,53 @@ class PlayerService {
 
   /// Inserts [track] right after the current one.
   Future<void> playNext(LibraryTrack track) async {
-    if (_state.current == null) return playQueue([track]);
+    if (_state.current == null) return _playAlone(track);
     _remember([track]);
-    // Read before awaiting: the playlist stream may update in between.
-    final last = _state.queue.length; // index the appended entry will get
-    final target = _state.index + 1;
-    await _backend.add(track.path);
-    if (last > target) await _backend.move(last, target);
+    await _queued(() async {
+      // The index the appended entry will get.
+      final last = _paths.length;
+      final target = _index + 1;
+      await _addEntry(track.path, manual: true);
+      if (last > target) await _moveEntry(last, target);
+    });
   }
 
   /// Appends [track] to the end of the queue.
   Future<void> addToQueue(LibraryTrack track) async {
-    if (_state.current == null) return playQueue([track]);
+    if (_state.current == null) return _playAlone(track);
     _remember([track]);
-    await _backend.add(track.path);
+    await _queued(() => _addEntry(track.path, manual: true));
   }
 
-  Future<void> removeAt(int index) => _backend.remove(index);
+  /// A track queued while nothing plays just plays: no list to continue
+  /// from, so no automatic tracks follow it.
+  Future<void> _playAlone(LibraryTrack track) async {
+    _remember([track]);
+    _order = null;
+    await _queued(() {
+      _paths = [track.path];
+      _manual = [true];
+      _index = 0;
+      return _backend.open(_paths);
+    });
+  }
+
+  Future<void> removeAt(int index) async {
+    await _queued(() => _removeEntry(index));
+    await _topUp();
+  }
 
   /// Removes every queue entry playing [path] (its file is being deleted).
   /// If it is the current track, playback moves on to the next one.
   Future<void> removeTrack(String path) async {
-    final queue = _state.queue;
-    for (var i = queue.length - 1; i >= 0; i--) {
-      if (queue[i].path == path) await _backend.remove(i);
-    }
+    _order?.remove(path);
+    await _queued(() async {
+      for (var i = _paths.length - 1; i >= 0; i--) {
+        if (_paths[i] == path) await _removeEntry(i);
+      }
+    });
     _tracksByPath.remove(path);
+    await _topUp();
   }
 
   /// Moves the entry at [from] so that it ends up at index [to].
@@ -197,8 +282,70 @@ class PlayerService {
     if (from == to) return;
     // mpv moves an entry *before* the target entry, so moving down needs
     // the entry after the destination as target.
-    await _backend.move(from, from < to ? to + 1 : to);
+    await _queued(() => _moveEntry(from, from < to ? to + 1 : to));
   }
+
+  // ------------------------------------------------------------------ queue
+  // Every playlist change goes through these (inside [_queued]), so the
+  // model stays equal to the engine's playlist.
+
+  Future<void> _addEntry(String path, {required bool manual}) {
+    _paths.add(path);
+    _manual.add(manual);
+    return _backend.add(path);
+  }
+
+  Future<void> _removeEntry(int index) {
+    _paths.removeAt(index);
+    _manual.removeAt(index);
+    // Removing the current entry plays the next one, now at the same index.
+    if (index < _index) _index--;
+    return _backend.remove(index);
+  }
+
+  /// mpv semantics: the entry at [from] ends up before the one at [to].
+  Future<void> _moveEntry(int from, int to) {
+    final dest = from < to ? to - 1 : to;
+    _paths.insert(dest, _paths.removeAt(from));
+    _manual.insert(dest, _manual.removeAt(from));
+    if (_index == from) {
+      _index = dest;
+    } else {
+      if (from < _index) _index--;
+      if (dest <= _index) _index++;
+    }
+    return _backend.move(from, to);
+  }
+
+  /// Runs [change] after any queue work already in progress.
+  Future<void> _queued(Future<void> Function() change) {
+    final run = _filling.then((_) async {
+      _changing++;
+      try {
+        await change();
+      } finally {
+        _changing--;
+      }
+    });
+    _filling = run.catchError((Object _) {});
+    return run;
+  }
+
+  /// Drops old history and refills up next to [upNextTarget] from the play
+  /// order. Called after anything that may have shortened the queue.
+  Future<void> _topUp() => _queued(() async {
+    final order = _order;
+    if (order == null || _index < 0) return;
+    for (var extra = _index - historyKept; extra > 0; extra--) {
+      await _removeEntry(0);
+    }
+    final upcoming = _paths.length - _index - 1;
+    final missing = upNextTarget - upcoming;
+    if (missing <= 0) return;
+    for (final path in order.take(missing)) {
+      await _addEntry(path, manual: false);
+    }
+  });
 
   // ---------------------------------------------------------------- session
 
@@ -216,6 +363,7 @@ class PlayerService {
 
     final volume = (session['volume'] as num?)?.toDouble();
     if (volume != null) await _backend.setVolume(volume);
+    // "all" from older versions is no longer a mode (the queue never ends).
     final repeat = PlaybackRepeat.values.asNameMap()[session['repeat']];
     if (repeat != null) await _backend.setRepeat(repeat);
 
@@ -223,11 +371,35 @@ class PlayerService {
         .cast<String>();
     final savedIndex = (session['index'] as num?)?.toInt() ?? 0;
     final currentPath = savedIndex < paths.length ? paths[savedIndex] : null;
+    final manual = {
+      for (final i in (session['manual'] as List<Object?>? ?? const []))
+        if (i is int && i < paths.length) paths[i],
+    };
     final tracks = [for (final p in paths) ?tracksByPath[p]];
     if (tracks.isEmpty) return;
     final index = tracks.indexWhere((t) => t.path == currentPath);
 
     _remember(tracks);
+    final savedOrder = session['order'];
+    _order = switch (savedOrder) {
+      final Map<String, Object?> json => PlayOrder.fromJson(
+        json,
+        tracksByPath.containsKey,
+      ),
+      false => null,
+      // Sessions from before the endless queue: continue through what was
+      // queued, in order.
+      _ => PlayOrder(
+        [for (final t in tracks) t.path],
+        shuffle: false,
+        start: index < 0 ? 0 : index,
+      ),
+    };
+    if (_order case final order?) {
+      _remember([for (final p in order.paths) ?tracksByPath[p]]);
+      _update(_state.copyWith(shuffle: order.shuffle));
+    }
+    _manual = [for (final t in tracks) manual.contains(t.path)];
     final positionMs = (session['positionMs'] as num?)?.toInt() ?? 0;
     final resumeAt = index >= 0 && positionMs > 0
         ? Duration(milliseconds: positionMs)
@@ -240,12 +412,13 @@ class PlayerService {
         .firstWhere((d) => d > Duration.zero)
         .timeout(const Duration(seconds: 3))
         .then((_) => true, onError: (Object _) => false);
-    await _backend.open(
-      [for (final t in tracks) t.path],
-      index: index < 0 ? 0 : index,
-      play: false,
-    );
+    await _queued(() {
+      _paths = [for (final t in tracks) t.path];
+      _index = index < 0 ? 0 : index;
+      return _backend.open(_paths, index: _index, play: false);
+    });
     if (await loaded && resumeAt != null) await _backend.seek(resumeAt);
+    await _topUp();
   }
 
   void _saveSession() {
@@ -261,6 +434,12 @@ class PlayerService {
         jsonEncode({
           'paths': [for (final t in s.queue.sublist(start, end)) t.path],
           'index': s.index - start,
+          'manual': [
+            for (var i = start; i < end && i < _manual.length; i++)
+              if (_manual[i]) i - start,
+          ],
+          // false: a lone queued track, nothing to continue from.
+          'order': _order?.toJson() ?? false,
           'positionMs': _backend.currentPosition.inMilliseconds,
           'repeat': s.repeat.name,
           'volume': s.volume,
@@ -278,6 +457,18 @@ class PlayerService {
   }
 
   void _onPlaylist(BackendPlaylist playlist) {
+    if (listEquals(playlist.paths, _paths)) {
+      _index = playlist.index; // tracks end and are skipped in the engine
+    } else if (_changing == 0) {
+      // Not a report lagging behind our own change: the engine's playlist
+      // is the truth (flags kept for entries that are still in place).
+      _manual = [
+        for (final (i, p) in playlist.paths.indexed)
+          i < _paths.length && _paths[i] == p && _manual[i],
+      ];
+      _paths = [...playlist.paths];
+      _index = playlist.index;
+    }
     final queue = [for (final p in playlist.paths) ?_tracksByPath[p]];
     final inRange =
         playlist.index >= 0 && playlist.index < playlist.paths.length;
@@ -303,6 +494,8 @@ class PlayerService {
     if (trackChanged) {
       _saveSession();
       if (current != null) _resumeIfSaved(current);
+      // The track ended (or was skipped in the system controls): refill.
+      unawaited(_topUp());
     }
   }
 

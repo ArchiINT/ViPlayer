@@ -4,7 +4,8 @@
 # muted. Your library and settings are not touched (temporary XDG dirs).
 #
 # Usage: scripts/playback-test.sh <music-dir>
-#   <music-dir> must contain a "ViPlayer" folder with a few audio files.
+#   <music-dir> must contain a "ViPlayer" folder with a few audio files of
+#   3-9 s (the test lets one play to its end).
 
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/_common.sh"

@@ -106,7 +106,6 @@ class RepeatButton extends ConsumerWidget {
     return IconButton(
       tooltip: switch (mode) {
         PlaybackRepeat.off => l10n.repeatOff,
-        PlaybackRepeat.all => l10n.repeatAll,
         PlaybackRepeat.one => l10n.repeatOne,
       },
       onPressed: ref.read(playerServiceProvider).cycleRepeat,

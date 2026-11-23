@@ -10,14 +10,12 @@ class FakeAudioBackend implements AudioBackend {
   final _playing = StreamController<bool>.broadcast(sync: true);
   final _position = StreamController<Duration>.broadcast(sync: true);
   final _duration = StreamController<Duration>.broadcast(sync: true);
-  final _shuffle = StreamController<bool>.broadcast(sync: true);
   final _repeat = StreamController<PlaybackRepeat>.broadcast(sync: true);
   final _volume = StreamController<double>.broadcast(sync: true);
 
   List<String> paths = [];
   int index = -1;
   bool isPlaying = false;
-  bool isShuffled = false;
   PlaybackRepeat repeatMode = PlaybackRepeat.off;
   Duration positionValue = Duration.zero;
   double volumeValue = 100;
@@ -51,8 +49,6 @@ class FakeAudioBackend implements AudioBackend {
   Stream<Duration> get position => _position.stream;
   @override
   Stream<Duration> get duration => _duration.stream;
-  @override
-  Stream<bool> get shuffle => _shuffle.stream;
   @override
   Stream<PlaybackRepeat> get repeat => _repeat.stream;
   @override
@@ -93,13 +89,8 @@ class FakeAudioBackend implements AudioBackend {
   @override
   Future<void> next() async {
     calls.add('next');
-    if (index < paths.length - 1) {
-      index++;
-    } else if (repeatMode == PlaybackRepeat.all) {
-      index = 0;
-    } else {
-      return;
-    }
+    if (index >= paths.length - 1) return;
+    index++;
     _emitPlaylist();
     _load();
   }
@@ -147,20 +138,6 @@ class FakeAudioBackend implements AudioBackend {
     paths.insert(from < to ? to - 1 : to, item);
     index = paths.indexOf(current);
     _emitPlaylist();
-  }
-
-  @override
-  Future<void> setShuffle(bool shuffle) async {
-    isShuffled = shuffle;
-    if (shuffle && paths.isNotEmpty) {
-      // Deterministic "shuffle": current first, the rest reversed.
-      final current = paths[index];
-      final rest = [...paths]..remove(current);
-      paths = [current, ...rest.reversed];
-      index = 0;
-      _emitPlaylist();
-    }
-    _shuffle.add(shuffle);
   }
 
   @override

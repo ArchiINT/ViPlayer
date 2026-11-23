@@ -2,10 +2,12 @@ import 'dart:async';
 
 import 'package:media_kit/media_kit.dart' as mk;
 
-enum PlaybackRepeat { off, all, one }
+/// Repeat the current track or not. There is no "repeat all": the queue
+/// never ends (see PlayerService).
+enum PlaybackRepeat { off, one }
 
-/// The playlist as the engine plays it: file paths in play order (shuffled
-/// if shuffle is on) and the index of the current one.
+/// The playlist as the engine plays it: file paths in play order and the
+/// index of the current one. (Shuffling is done by PlayerService.)
 class BackendPlaylist {
   const BackendPlaylist(this.paths, this.index);
 
@@ -20,7 +22,6 @@ abstract interface class AudioBackend {
   Stream<bool> get playing;
   Stream<Duration> get position;
   Stream<Duration> get duration;
-  Stream<bool> get shuffle;
   Stream<PlaybackRepeat> get repeat;
 
   /// 0..100
@@ -44,7 +45,6 @@ abstract interface class AudioBackend {
   /// mpv semantics: the entry at [from] takes the place of the entry at [to]
   /// (it ends up *before* the entry that was at [to]).
   Future<void> move(int from, int to);
-  Future<void> setShuffle(bool shuffle);
   Future<void> setRepeat(PlaybackRepeat mode);
   Future<void> setVolume(double volume);
   Future<void> stop();
@@ -83,14 +83,10 @@ class MediaKitBackend implements AudioBackend {
   Stream<Duration> get duration => _player.stream.duration;
 
   @override
-  Stream<bool> get shuffle => _player.stream.shuffle;
-
-  @override
   Stream<PlaybackRepeat> get repeat => _player.stream.playlistMode.map(
     (m) => switch (m) {
-      mk.PlaylistMode.none => PlaybackRepeat.off,
-      mk.PlaylistMode.loop => PlaybackRepeat.all,
       mk.PlaylistMode.single => PlaybackRepeat.one,
+      _ => PlaybackRepeat.off,
     },
   );
 
@@ -138,13 +134,9 @@ class MediaKitBackend implements AudioBackend {
   Future<void> move(int from, int to) => _player.move(from, to);
 
   @override
-  Future<void> setShuffle(bool shuffle) => _player.setShuffle(shuffle);
-
-  @override
   Future<void> setRepeat(PlaybackRepeat mode) =>
       _player.setPlaylistMode(switch (mode) {
         PlaybackRepeat.off => mk.PlaylistMode.none,
-        PlaybackRepeat.all => mk.PlaylistMode.loop,
         PlaybackRepeat.one => mk.PlaylistMode.single,
       });
 

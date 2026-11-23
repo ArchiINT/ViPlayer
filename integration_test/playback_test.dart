@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:viplayer/core/player/player_providers.dart';
+import 'package:viplayer/core/player/player_service.dart';
 import 'package:viplayer/main.dart' as app;
 import 'package:viplayer/shared/widgets/track_tile.dart';
 
@@ -54,6 +55,46 @@ void main() {
     );
     await tester.pump();
     expect(player.snapshot.value.current!.id, isNot(first));
+
+    // The endless queue, with the engine reporting changes asynchronously.
+    Future<void> settle() async {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 700)),
+      );
+      await tester.pump();
+    }
+
+    int upNext() {
+      final s = player.snapshot.value;
+      return s.queue.length - s.index - 1;
+    }
+
+    await settle();
+    expect(upNext(), PlayerService.upNextTarget);
+
+    await player.toggleShuffle();
+    await settle();
+    expect(player.snapshot.value.shuffle, isTrue);
+    expect(upNext(), PlayerService.upNextTarget);
+
+    for (var i = 0; i < 5; i++) {
+      await player.next();
+    }
+    await settle();
+    expect(upNext(), PlayerService.upNextTarget);
+
+    final s = player.snapshot.value;
+    await player.removeAt(s.index + 1);
+    await player.playNext(s.current!);
+    await settle();
+    expect(upNext(), PlayerService.upNextTarget + 1);
+
+    // Tracks also end on their own (use test files of under 10 s).
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(seconds: 10)),
+    );
+    await tester.pump();
+    expect(upNext(), PlayerService.upNextTarget);
 
     await player.pause();
   });
