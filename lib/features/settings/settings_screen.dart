@@ -15,6 +15,8 @@ import '../../core/settings/settings_providers.dart';
 import '../../core/sync/sync_providers.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/update/update_providers.dart';
+import '../../core/update/update_service.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/widgets/glass_panel.dart';
 import '../../shared/widgets/section_header.dart';
@@ -154,6 +156,13 @@ class SettingsScreen extends ConsumerWidget {
                   style: pathStyle,
                 ),
               ),
+              if (ref.watch(updateServiceProvider) != null)
+                ListTile(
+                  leading: const Icon(Icons.system_update_rounded),
+                  title: Text(l10n.updateCheck),
+                  subtitle: Text(l10n.updateCheckHint),
+                  onTap: () => _checkForUpdates(context, ref),
+                ),
               ListTile(
                 leading: const Icon(Icons.description_outlined),
                 title: Text(l10n.settingsLicenses),
@@ -183,6 +192,25 @@ class SettingsScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  static Future<void> _checkForUpdates(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final l10n = AppLocalizations.of(context);
+    final result = await ref.read(updateServiceProvider)!.checkNow();
+    // Downloading and ready show up in the banner above the player.
+    final message = switch (result) {
+      UpdateCheck.noPeers => l10n.updateNoPeers,
+      UpdateCheck.upToDate => l10n.updateUpToDate,
+      UpdateCheck.failed => l10n.updateFailed,
+      UpdateCheck.downloading || UpdateCheck.ready => null,
+    };
+    if (message != null) {
+      messenger.showSnackBar(SnackBar(content: Text(message)));
+    }
   }
 
   static String _accentLabel(AppLocalizations l10n, Accent accent) =>

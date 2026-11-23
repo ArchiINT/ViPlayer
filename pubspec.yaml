@@ -2,7 +2,7 @@ name: viplayer
 description: "Cross-platform music player with LAN sync and downloads"
 publish_to: 'none'
 
-version: 1.2.4+15
+version: 1.3.0+16
 
 environment:
   sdk: ^3.13.5

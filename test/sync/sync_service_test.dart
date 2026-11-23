@@ -1,7 +1,10 @@
+import 'dart:async';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -12,6 +15,7 @@ import 'package:viplayer/core/library/library_repository.dart';
 import 'package:viplayer/core/library/library_scanner.dart';
 import 'package:viplayer/core/sync/peer_store.dart';
 import 'package:viplayer/core/sync/sync_service.dart';
+import 'package:viplayer/core/update/update_service.dart';
 
 /// A complete device: database, music folder, scanner and sync service.
 class _Device {
@@ -23,6 +27,7 @@ class _Device {
   final SyncService sync;
 
   String get music => p.join(dir.path, 'music');
+  String get updates => p.join(dir.path, 'update');
 
   static Future<_Device> create(
     String id,
@@ -49,6 +54,7 @@ class _Device {
       importFile: scanner.importFile,
       enableDiscovery: false,
       httpPort: 0, // any free port: two devices in one process
+      updateDirectory: p.join(dir.path, 'update'),
     );
     await sync.start();
     return _Device._(db, dir, scanner, sync);
@@ -333,6 +339,85 @@ void main() {
       expect(await phone.titles(), ['Neon Rain']);
     });
   });
+
+  group('app updates from the PC', () {
+    final apkBytes = List.generate(300000, (i) => i % 251);
+
+    Future<void> offer({int versionCode = 2020, List<int>? bytes}) async {
+      await Directory(pc.updates).create(recursive: true);
+      await File(p.join(pc.updates, 'viplayer.apk')).writeAsBytes(apkBytes);
+      final sha = sha256.convert(bytes ?? apkBytes).toString();
+      await File(p.join(pc.updates, 'update.json')).writeAsString(
+        '{"versionCode": $versionCode, "versionName": "9.9.9", '
+        '"sha256": "$sha", "size": ${apkBytes.length}}',
+      );
+    }
+
+    UpdateService phoneUpdates(_FakeInstaller installer) {
+      final service = UpdateService(
+        sync: phone.sync,
+        cacheDirectory: p.join(phone.dir.path, 'update-cache'),
+        installer: installer,
+        backup: () async => installer.backups++,
+      );
+      addTearDown(service.dispose);
+      return service;
+    }
+
+    test('nothing offered: up to date', () async {
+      await pair();
+      expect(await phone.sync.fetchUpdateOffer('pc'), isNull);
+      final updates = phoneUpdates(_FakeInstaller(own: 2010));
+      expect(await updates.checkNow(), UpdateCheck.upToDate);
+    });
+
+    test('a newer build downloads, is verified and installs', () async {
+      await pair();
+      await offer();
+      final installer = _FakeInstaller(own: 2010);
+      final updates = phoneUpdates(installer);
+
+      expect(await updates.checkNow(), UpdateCheck.ready);
+      expect(updates.state.value.offer!.versionName, '9.9.9');
+
+      expect(await updates.install(), InstallResult.started);
+      expect(installer.backups, 1, reason: 'database backed up first');
+      expect(File(installer.installed!).readAsBytesSync(), apkBytes);
+    });
+
+    test('the same or an older build is ignored', () async {
+      await pair();
+      await offer(versionCode: 2010);
+      final updates = phoneUpdates(_FakeInstaller(own: 2010));
+      expect(await updates.checkNow(), UpdateCheck.upToDate);
+    });
+
+    test('a file that does not match the offer is refused', () async {
+      await pair();
+      await offer(bytes: [1, 2, 3]); // checksum of something else
+      final updates = phoneUpdates(_FakeInstaller(own: 2010));
+      expect(await updates.checkNow(), UpdateCheck.failed);
+      expect(
+        Directory(updates.cacheDirectory).listSync(),
+        isEmpty,
+        reason: 'no half-verified APK is left behind',
+      );
+    });
+
+    test('unpaired devices are not offered updates', () async {
+      await offer();
+      await phone.sync.connect('127.0.0.1', pc.sync.port!);
+      expect(await phone.sync.fetchUpdateOffer('pc'), isNull);
+    });
+
+    test('the phone checks after each sync by itself', () async {
+      await pair();
+      await offer();
+      final updates = phoneUpdates(_FakeInstaller(own: 2010));
+      await phone.sync.syncWith('pc');
+      await updates.state.waitFor((s) => s.phase == UpdatePhase.ready);
+    });
+  });
 }
 
 /// Records what a phone asked the PC to do.
@@ -375,4 +460,37 @@ class _IsolatedPrefs implements SharedPreferences {
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _FakeInstaller implements UpdateInstaller {
+  _FakeInstaller({required this.own});
+
+  final int own;
+  int backups = 0;
+  String? installed;
+
+  @override
+  Future<int?> currentVersionCode() async => own;
+
+  @override
+  Future<InstallResult> install(String apkPath) async {
+    installed = apkPath;
+    return InstallResult.started;
+  }
+}
+
+extension<T> on ValueListenable<T> {
+  /// Completes once the value satisfies [test] (fails after 10 s).
+  Future<void> waitFor(bool Function(T) test) {
+    if (test(value)) return Future.value();
+    final done = Completer<void>();
+    void listener() {
+      if (test(value) && !done.isCompleted) done.complete();
+    }
+
+    addListener(listener);
+    return done.future
+        .timeout(const Duration(seconds: 10))
+        .whenComplete(() => removeListener(listener));
+  }
 }

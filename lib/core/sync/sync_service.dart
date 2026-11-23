@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:crypto/crypto.dart' as crypto;
 import 'package:drift/drift.dart' show Variable;
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
@@ -10,6 +12,7 @@ import '../database/app_database.dart';
 import '../download/download_models.dart';
 import '../download/download_service.dart';
 import '../platform/app_log.dart';
+import '../update/update_offer.dart';
 import 'changeset.dart';
 import 'discovery.dart';
 import 'peer_store.dart';
@@ -154,6 +157,7 @@ class SyncService {
     this.discoveryPort = Discovery.defaultPort,
     this.httpPort = defaultHttpPort,
     this.enableDiscovery = true,
+    this.updateDirectory,
   }) : _import = importFile,
        _name = deviceName {
     _snapshot.value = SyncSnapshot(
@@ -174,6 +178,14 @@ class SyncService {
   final int discoveryPort;
   final int httpPort;
   final bool enableDiscovery;
+
+  /// Desktop: folder holding `update.json` + `viplayer.apk`, offered to
+  /// paired phones (filled by scripts/deploy-all.sh). Null offers nothing.
+  final String? updateDirectory;
+
+  /// Ids of peers just synced successfully (phones then look for updates).
+  Stream<String> get synced => _synced.stream;
+  final _synced = StreamController<String>.broadcast();
 
   static const defaultHttpPort = 48126;
 
@@ -541,6 +553,7 @@ class SyncService {
 
       await _savePeer(peer.copyWith(lastSync: DateTime.now()));
       _setPeerState(peerId, const PeerSyncState());
+      _synced.add(peerId);
       if (received > 0) {
         _reports.add(SyncReport(peer: peer.name, filesReceived: received));
       }
@@ -772,8 +785,142 @@ class SyncService {
         _previews[id] = stream.url;
         _sendJson(response, {'path': '/preview/$id'});
       }
+    } else if (request.method == 'GET' && path == '/update/info') {
+      await _sendUpdateInfo(response, peer, path);
+    } else if (request.method == 'GET' && path == '/update/apk') {
+      await _sendUpdateApk(response);
     } else {
       response.statusCode = HttpStatus.notFound;
+    }
+  }
+
+  // ---------------------------------------------------------- app updates
+
+  File? _updateFile(String name) =>
+      updateDirectory == null ? null : File(p.join(updateDirectory!, name));
+
+  Future<void> _sendUpdateInfo(
+    HttpResponse response,
+    PairedPeer peer,
+    String path,
+  ) async {
+    final info = _updateFile('update.json');
+    final apk = _updateFile('viplayer.apk');
+    if (info == null ||
+        !info.existsSync() ||
+        apk == null ||
+        !apk.existsSync()) {
+      response.statusCode = HttpStatus.notFound;
+      return;
+    }
+    final body = await info.readAsBytes();
+    // Signed: the phone trusts the checksum in it, which in turn vouches
+    // for the (large, unsigned) APK download.
+    response.headers
+      ..contentType = ContentType.json
+      ..set('x-vp-body-sig', SyncAuth.signBody(peer.secret, path, body));
+    response.add(body);
+  }
+
+  Future<void> _sendUpdateApk(HttpResponse response) async {
+    final apk = _updateFile('viplayer.apk');
+    if (apk == null || !apk.existsSync()) {
+      response.statusCode = HttpStatus.notFound;
+      return;
+    }
+    response.headers
+      ..contentType = ContentType.binary
+      ..contentLength = await apk.length();
+    await response.addStream(apk.openRead());
+  }
+
+  /// The app build [peerId] offers, or null when it offers none.
+  Future<UpdateOffer?> fetchUpdateOffer(String peerId) async {
+    const path = '/update/info';
+    final peer = _state.paired[peerId];
+    if (peer == null) return null;
+    final device = _nearby(peerId);
+    final client = HttpClient()..connectionTimeout = const Duration(seconds: 5);
+    try {
+      final request = await client.get(device.host, device.port, path);
+      _signRequest(request, 'GET', path, peer);
+      final response = await request.close();
+      final body = await response.fold<BytesBuilder>(
+        BytesBuilder(copy: false),
+        (b, chunk) => b..add(chunk),
+      );
+      if (response.statusCode == HttpStatus.notFound) return null;
+      if (response.statusCode != HttpStatus.ok) {
+        throw _httpFailure(response.statusCode, 'update info');
+      }
+      final bytes = body.takeBytes();
+      final signature = response.headers.value('x-vp-body-sig') ?? '';
+      if (!SyncAuth.verifyBody(
+        secret: peer.secret,
+        path: path,
+        body: bytes,
+        signature: signature,
+      )) {
+        throw const SyncException(SyncFailure.failed, 'unsigned update info');
+      }
+      return UpdateOffer.fromJson(
+        jsonDecode(utf8.decode(bytes)) as Map<String, Object?>,
+      );
+    } on SocketException catch (e) {
+      throw SyncException(SyncFailure.unreachable, e.message);
+    } finally {
+      client.close(force: true);
+    }
+  }
+
+  /// Downloads the APK [offer]ed by [peerId] into [target]. It only appears
+  /// there complete and matching the offer's checksum; throws otherwise.
+  Future<void> downloadUpdate(
+    String peerId,
+    UpdateOffer offer,
+    File target, {
+    void Function(double fraction)? onProgress,
+  }) async {
+    const path = '/update/apk';
+    final peer = _state.paired[peerId];
+    if (peer == null) throw const SyncException(SyncFailure.refused);
+    final device = _nearby(peerId);
+    final client = HttpClient()..connectionTimeout = const Duration(seconds: 5);
+    final part = File('${target.path}.part');
+    try {
+      await target.parent.create(recursive: true);
+      final request = await client.get(device.host, device.port, path);
+      _signRequest(request, 'GET', path, peer);
+      final response = await request.close();
+      if (response.statusCode != HttpStatus.ok) {
+        await response.drain<void>();
+        throw _httpFailure(response.statusCode, 'update apk');
+      }
+      final total = response.contentLength;
+      final digest = _DigestSink();
+      final hasher = crypto.sha256.startChunkedConversion(digest);
+      final sink = part.openWrite();
+      var received = 0;
+      try {
+        await for (final chunk in response) {
+          sink.add(chunk);
+          hasher.add(chunk);
+          received += chunk.length;
+          if (total > 0) onProgress?.call(received / total);
+        }
+      } finally {
+        await sink.close();
+      }
+      hasher.close();
+      if (digest.value.toString() != offer.sha256.toLowerCase()) {
+        throw const SyncException(SyncFailure.failed, 'update checksum');
+      }
+      await part.rename(target.path);
+    } on SocketException catch (e) {
+      throw SyncException(SyncFailure.unreachable, e.message);
+    } finally {
+      client.close(force: true);
+      if (part.existsSync()) await part.delete();
     }
   }
 
@@ -1203,6 +1350,18 @@ class SyncService {
   Future<void> dispose() async {
     await stop();
     await _reports.close();
+    await _synced.close();
     _snapshot.dispose();
   }
+}
+
+/// Receives the digest of a chunked hash.
+class _DigestSink implements Sink<crypto.Digest> {
+  late crypto.Digest value;
+
+  @override
+  void add(crypto.Digest data) => value = data;
+
+  @override
+  void close() {}
 }

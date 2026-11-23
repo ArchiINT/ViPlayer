@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:drift/drift.dart' show Variable;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
 
 import '../database/app_database.dart';
 import '../download/download_models.dart';
@@ -45,6 +46,10 @@ final syncServiceProvider = Provider<SyncService>((ref) {
     downloadDirectory: ref.watch(appDirectoriesProvider).downloads,
     coversDirectory: ref.watch(appDirectoriesProvider).covers,
     importFile: scanner.importFile,
+    // The PC offers phone app updates from here (scripts/deploy-all.sh).
+    updateDirectory: thisDeviceKind == DeviceKind.desktop
+        ? p.join(ref.watch(appDirectoriesProvider).support, 'update')
+        : null,
   );
   ref.onDispose(service.dispose);
   return service;

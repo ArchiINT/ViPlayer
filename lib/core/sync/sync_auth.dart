@@ -37,6 +37,18 @@ abstract final class SyncAuth {
   static String sign(String secret, String method, String path, int timeMs) =>
       _hmac(secret, '$method $path $timeMs');
 
+  /// Signs a response body, so the receiver knows it comes from the paired
+  /// device unchanged (used for app update offers).
+  static String signBody(String secret, String path, List<int> body) =>
+      _hmac(secret, 'BODY $path ${sha256.convert(body)}');
+
+  static bool verifyBody({
+    required String secret,
+    required String path,
+    required List<int> body,
+    required String signature,
+  }) => constantTimeEquals(signBody(secret, path, body), signature);
+
   static bool verify({
     required String secret,
     required String method,

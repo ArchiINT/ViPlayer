@@ -212,5 +212,15 @@
   "noticeDownloadedMany": "Скачано {count, plural, =1{{count} трек} few{{count} трека} many{{count} треков} other{{count} трека}}",
   "noticeDownloadFailed": "Не удалось скачать {title}: {reason}",
   "noticeDownloadsMixed": "Скачано: {done}, с ошибкой: {failed}. Подробности — в «Загрузках».",
-  "noticeShow": "Открыть"
+  "noticeShow": "Открыть",
+  "updateDownloading": "Загрузка обновления {version}…",
+  "updateReady": "ViPlayer {version} загружен. Медиатека сохранится.",
+  "updateInstall": "Установить",
+  "updateFailed": "Обновление не загрузилось. Повторю после следующей синхронизации.",
+  "updateNeedsPermission": "Разрешите ViPlayer устанавливать приложения и нажмите «Установить» ещё раз",
+  "updateInstallFailed": "Не удалось открыть установщик",
+  "updateCheck": "Проверить обновления",
+  "updateCheckHint": "Новые версии приходят со связанного ПК",
+  "updateNoPeers": "Связанного ПК в сети нет",
+  "updateUpToDate": "У вас последняя версия"
 }

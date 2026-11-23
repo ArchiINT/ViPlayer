@@ -513,5 +513,17 @@
       }
     }
   },
-  "noticeShow": "Show"
+  "noticeShow": "Show",
+  "updateDownloading": "Downloading update {version}…",
+  "@updateDownloading": {"placeholders": {"version": {"type": "String"}}},
+  "updateReady": "ViPlayer {version} is ready. Your library stays.",
+  "@updateReady": {"placeholders": {"version": {"type": "String"}}},
+  "updateInstall": "Install",
+  "updateFailed": "The update did not download. It will retry after the next sync.",
+  "updateNeedsPermission": "Allow ViPlayer to install apps, then tap Install again",
+  "updateInstallFailed": "Could not open the installer",
+  "updateCheck": "Check for updates",
+  "updateCheckHint": "New versions come from the paired PC",
+  "updateNoPeers": "No paired PC on the network",
+  "updateUpToDate": "You have the latest version"
 }
